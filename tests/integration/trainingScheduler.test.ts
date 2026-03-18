@@ -23,6 +23,7 @@ describe('training scheduler', () => {
         openingName: 'Main Line',
         tags: ['catalog', 'depth:1'],
         difficulty: 1,
+        terminalNodeId: '',
       },
       {
         id: 'sideline',
@@ -32,6 +33,7 @@ describe('training scheduler', () => {
         openingName: 'Sideline',
         tags: ['sideline', 'depth:1'],
         difficulty: 1,
+        terminalNodeId: '',
       },
     ];
 
@@ -90,6 +92,7 @@ describe('training scheduler', () => {
         openingName: 'Ruy Lopez',
         tags: ['catalog', 'depth:3'],
         difficulty: 2,
+        terminalNodeId: '',
       },
       {
         id: 'due-line',
@@ -99,6 +102,7 @@ describe('training scheduler', () => {
         openingName: 'Italian Game',
         tags: ['catalog', 'depth:3'],
         difficulty: 3,
+        terminalNodeId: '',
       },
     ];
     const reviewStates: Record<string, ReviewState> = {

@@ -1,8 +1,7 @@
 import type { TheoryNote } from '@/domain/opening';
 import type { OpeningGraph } from '@/domain/position';
 import type { CoverageMetric, ReviewState, TrainingLine, TrainingMetrics } from '@/domain/training';
-import { getOpeningNameForNode, toNodeIdFromEpd } from '@/lib/chess/openingGraph';
-import { applyUciLine } from '@/lib/chess/openingGraph';
+import { getOpeningNameForNode } from '@/lib/chess/openingGraph';
 import { isReviewDue } from '@/lib/training/scheduler';
 
 function isMastered(reviewState: ReviewState | undefined): boolean {
@@ -14,12 +13,7 @@ function isPending(reviewState: ReviewState | undefined, now: Date): boolean {
 }
 
 function resolveNodeId(line: TrainingLine): string {
-  try {
-    const { epd } = applyUciLine(line.movePath);
-    return toNodeIdFromEpd(epd);
-  } catch {
-    return `unknown-${line.id}`;
-  }
+  return line.terminalNodeId || `unknown-${line.id}`;
 }
 
 function buildCoverage(

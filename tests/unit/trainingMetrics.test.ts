@@ -68,6 +68,7 @@ describe('training metrics and line selection', () => {
         openingName: "Queen's Gambit Declined",
         tags: ['catalog', 'depth:3', 'white-turn'],
         difficulty: 3,
+        terminalNodeId: transpositionNodeId,
       },
       {
         id: `line-cat-qgd-main-order-black`,
@@ -77,6 +78,7 @@ describe('training metrics and line selection', () => {
         openingName: "Queen's Gambit Declined",
         tags: ['catalog', 'depth:3', 'black-turn'],
         difficulty: 3,
+        terminalNodeId: transpositionNodeId,
       },
     ];
     const reviewStates: Record<string, ReviewState> = Object.fromEntries(

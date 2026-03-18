@@ -8,6 +8,7 @@ export const trainingLineSchema = z.object({
   openingName: z.string().default(''),
   tags: z.array(z.string()).default([]),
   difficulty: z.number().min(1).max(10),
+  terminalNodeId: z.string().default(''),
 });
 
 export const reviewStateSchema = z.object({

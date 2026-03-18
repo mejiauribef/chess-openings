@@ -8,7 +8,7 @@ async function waitForAppShell(page: Page): Promise<void> {
 }
 
 export async function gotoApp(page: Page): Promise<void> {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/chess-openings/', { waitUntil: 'domcontentloaded' });
   await waitForAppShell(page);
 }
 

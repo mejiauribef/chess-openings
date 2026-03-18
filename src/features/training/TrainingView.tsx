@@ -8,7 +8,6 @@ import { rescheduleReview } from '@/lib/training/scheduler';
 import { PlayableBoard } from '@/components/PlayableBoard';
 import { EmptyStatePanel } from '@/components/EmptyStatePanel';
 import { SectionCard } from '@/components/SectionCard';
-import { applyUciLine } from '@/lib/chess/openingGraph';
 
 interface TrainingViewProps {
   graph: OpeningGraph;
@@ -95,21 +94,15 @@ export function TrainingView({
     );
   }
 
-  const relatedTheory = theoryNotes.find((note) => {
-    const { epd } = applyUciLine(currentLine.movePath);
-    return note.nodeId.includes(epd.slice(0, 20));
-  }) ?? theoryNotes.find((note) =>
-    currentLine.tags.some((tag) => note.tags.includes(tag)),
-  );
+  const relatedTheory = (currentLine.terminalNodeId
+    ? theoryNotes.find((note) => note.nodeId === currentLine.terminalNodeId)
+    : undefined)
+    ?? theoryNotes.find((note) =>
+      currentLine.tags.some((tag) => note.tags.includes(tag)),
+    );
 
-  const moveHistory = (() => {
-    try {
-      const { sanMoves } = applyUciLine(currentLine.movePath);
-      return sanMoves;
-    } catch {
-      return [];
-    }
-  })();
+  // Move history is shown as UCI moves (no Chess instantiation needed)
+  const moveHistory = currentLine.movePath;
 
   async function handleLineComplete(result: { mistakes: number; completed: boolean }) {
     const grade =
@@ -216,9 +209,9 @@ export function TrainingView({
             <article className="info-panel">
               <h3>Movimientos</h3>
               <div className="move-history-compact">
-                {moveHistory.map((san, i) => (
-                  <span key={`${san}-${i}`}>
-                    {i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ` : ''}{san}{' '}
+                {moveHistory.map((uci, i) => (
+                  <span key={`${uci}-${i}`}>
+                    {i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ` : ''}{uci}{' '}
                   </span>
                 ))}
               </div>

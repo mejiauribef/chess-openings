@@ -448,6 +448,24 @@ export function resolveNodeIdFromUciLine(graph: OpeningGraph, uciMoves: string[]
   return nodeId;
 }
 
+/**
+ * Walk graph edges to resolve the terminal nodeId for a UCI move sequence.
+ * Returns undefined if any edge is missing (avoids creating Chess instances).
+ */
+export function tryResolveNodeIdViaGraph(graph: OpeningGraph, uciMoves: string[]): string | undefined {
+  let currentNodeId = graph.rootNodeId;
+
+  for (const uci of uciMoves) {
+    const node = graph.nodes[currentNodeId];
+    if (!node) return undefined;
+    const edge = node.childEdges.find((e) => e.uci === uci);
+    if (!edge) return undefined;
+    currentNodeId = edge.toNodeId;
+  }
+
+  return graph.nodes[currentNodeId] ? currentNodeId : undefined;
+}
+
 export function identifyOpeningsByUci(graph: OpeningGraph, uciMoves: string[]): OpeningEntry[] {
   const nodeId = resolveNodeIdFromUciLine(graph, uciMoves);
   return graph.nodes[nodeId].openingIds.map((openingId) => graph.openingsById[openingId]);
