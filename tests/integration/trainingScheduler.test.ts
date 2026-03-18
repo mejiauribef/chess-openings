@@ -54,6 +54,7 @@ describe('training scheduler', () => {
       lines,
       {
         maximumDepth: 10,
+        minimumDepth: 0,
         includeSidelines: false,
         catalogScope: 'catalog',
         hintsEnabled: true,
@@ -67,6 +68,7 @@ describe('training scheduler', () => {
       lines,
       {
         maximumDepth: 10,
+        minimumDepth: 0,
         includeSidelines: true,
         catalogScope: 'catalog',
         hintsEnabled: true,
@@ -123,6 +125,7 @@ describe('training scheduler', () => {
       graph,
       settings: {
         maximumDepth: 12,
+        minimumDepth: 0,
         includeSidelines: true,
         catalogScope: 'catalog',
         hintsEnabled: true,

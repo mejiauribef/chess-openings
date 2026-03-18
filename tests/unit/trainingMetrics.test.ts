@@ -25,6 +25,7 @@ describe('training metrics and line selection', () => {
       graph,
       settings: {
         maximumDepth: 12,
+        minimumDepth: 0,
         includeSidelines: true,
         catalogScope: 'repertoire',
         hintsEnabled: true,

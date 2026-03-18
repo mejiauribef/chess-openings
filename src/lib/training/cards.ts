@@ -137,13 +137,14 @@ export function filterLinesBySettings(
   return lines.filter((line) => {
     const depth = getDepthFromTags(line.tags);
     const withinDepth = depth <= settings.maximumDepth || depth === 0;
+    const aboveMinimum = depth >= settings.minimumDepth || depth === 0;
     const sidelinesAllowed = settings.includeSidelines || !isSidelineLine(line);
 
     if (settings.trainingColor !== 'both' && line.color !== settings.trainingColor) {
       return false;
     }
 
-    return withinDepth && sidelinesAllowed;
+    return withinDepth && aboveMinimum && sidelinesAllowed;
   });
 }
 

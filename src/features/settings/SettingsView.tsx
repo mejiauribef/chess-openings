@@ -17,6 +17,7 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
               type="button"
               onClick={() =>
                 onChange({
+                  minimumDepth: 5,
                   maximumDepth: 10,
                   includeSidelines: true,
                   catalogScope: 'catalog',
@@ -33,6 +34,7 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
               className="secondary-button"
               onClick={() =>
                 onChange({
+                  minimumDepth: 6,
                   maximumDepth: 14,
                   includeSidelines: false,
                   catalogScope: 'repertoire',
@@ -46,6 +48,17 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
             </button>
           </div>
         </article>
+
+        <label className="field">
+          <span>Profundidad minima (jugadas completas)</span>
+          <input
+            type="number"
+            min={0}
+            max={20}
+            value={settings.minimumDepth}
+            onChange={(event) => { const v = Number(event.target.value); if (Number.isFinite(v)) { onChange({ minimumDepth: v }); } }}
+          />
+        </label>
 
         <label className="field">
           <span>Profundidad maxima</span>

@@ -24,6 +24,7 @@ export const reviewStateSchema = z.object({
 
 export const trainingSettingsSchema = z.object({
   maximumDepth: z.number().int().positive(),
+  minimumDepth: z.number().int().nonnegative().default(6),
   includeSidelines: z.boolean(),
   catalogScope: z.enum(['repertoire', 'catalog']),
   hintsEnabled: z.boolean(),
@@ -73,6 +74,7 @@ export interface TrainingMetrics {
 
 export const defaultTrainingSettings: TrainingSettings = {
   maximumDepth: 12,
+  minimumDepth: 6,
   includeSidelines: true,
   catalogScope: 'catalog',
   hintsEnabled: true,
