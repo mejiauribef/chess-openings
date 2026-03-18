@@ -1,0 +1,46 @@
+{
+  "name": "chess-openings-local-first",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src scripts tests vite.config.ts playwright.config.ts eslint.config.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "data:sample": "tsx scripts/import-lichess-openings.ts --mode=sample && tsx scripts/import-eco-json.ts --mode=sample && tsx scripts/build-opening-graph.ts --mode=sample",
+    "data:full": "tsx scripts/import-lichess-openings.ts --mode=full && tsx scripts/import-eco-json.ts --mode=full && tsx scripts/build-opening-graph.ts --mode=full",
+    "import:pgn": "tsx scripts/import-pgn.ts"
+  },
+  "dependencies": {
+    "chess.js": "^1.3.1",
+    "react": "^19.2.0",
+    "react-chessboard": "^4.7.3",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^27.1.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.1.12",
+    "vitest": "^4.0.7"
+  },
+  "packageManager": "pnpm@10.20.0"
+}

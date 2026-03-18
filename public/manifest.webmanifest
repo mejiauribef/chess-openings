@@ -1,0 +1,10 @@
+{
+  "name": "Chess Openings Local First",
+  "short_name": "Openings",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "description": "Aplicacion local-first para estudiar aperturas de ajedrez sin backend."
+}
+

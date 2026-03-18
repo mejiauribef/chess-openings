@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+playwright-report
+test-results
+.DS_Store
+*.log
+.pnpm-store
+.claude/
+data/sources/eco-json/
+data/sources/lichess-org/chess-openings/
+
