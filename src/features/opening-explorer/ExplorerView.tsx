@@ -12,6 +12,7 @@ interface ExplorerViewProps {
   onReset: () => void;
   onOpenCatalog: () => void;
   onLoadSelectedOpening?: () => void;
+  courseOpeningIds?: Set<string>;
 }
 
 export function ExplorerView({
@@ -22,6 +23,7 @@ export function ExplorerView({
   onReset,
   onOpenCatalog,
   onLoadSelectedOpening,
+  courseOpeningIds,
 }: ExplorerViewProps) {
   if (!selectedNodeId) {
     return (
@@ -81,12 +83,20 @@ export function ExplorerView({
           {legalMoves.map((move) => {
             const uci = `${move.from}${move.to}${move.promotion ?? ''}`;
             const graphEdge = node.childEdges.find((edge) => edge.uci === uci);
+            const inCourse = courseOpeningIds
+              ? graphEdge && graph.nodes[graphEdge.toNodeId]?.openingIds.some((id) => courseOpeningIds.has(id))
+              : undefined;
+            const courseClass = inCourse === true
+              ? 'move-chip--in-course'
+              : inCourse === false
+                ? 'move-chip--out-of-course'
+                : '';
 
             return (
               <button
                 key={uci}
                 type="button"
-                className={`move-chip ${graphEdge ? 'move-chip--in-graph' : ''}`}
+                className={`move-chip ${graphEdge ? 'move-chip--in-graph' : ''} ${courseClass}`}
                 disabled={!graphEdge}
                 onClick={() => graphEdge && onPlayMove(graphEdge.uci)}
               >

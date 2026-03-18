@@ -2,6 +2,7 @@ import type { ReviewState, TrainingLine } from '@/domain/training';
 import { buildOpeningGraph, resolveNodeIdFromUciLine } from '@/lib/chess/openingGraph';
 import { createTrainingLines, selectTrainingLines } from '@/lib/training/cards';
 import { buildTrainingMetrics } from '@/lib/training/metrics';
+import { normalizeFamily } from '@/lib/chess/familyIndex';
 import { sampleOpenings } from '../fixtures/sampleOpenings';
 
 describe('training metrics and line selection', () => {
@@ -128,5 +129,28 @@ describe('training metrics and line selection', () => {
     expect(metrics.theoryCoverage.notedNodes).toBe(1);
     expect(metrics.errorsByOpening.some((entry) => entry.label.includes("Queen's Gambit"))).toBe(true);
     expect(metrics.weakPoints.length).toBeGreaterThan(0);
+  });
+
+  it('scopes training lines to a specific course family', () => {
+    const graph = buildOpeningGraph(sampleOpenings);
+    const lines = createTrainingLines(graph, []);
+    const openGameIds = new Set(
+      sampleOpenings
+        .filter((o) => normalizeFamily(o.family) === 'open')
+        .map((o) => o.id),
+    );
+    const scopedLines = lines.filter((l) => openGameIds.has(l.lineSourceId));
+
+    expect(scopedLines.length).toBeGreaterThan(0);
+    expect(scopedLines.every((l) => openGameIds.has(l.lineSourceId))).toBe(true);
+
+    const scopedMetrics = buildTrainingMetrics({
+      lines: scopedLines,
+      graph,
+      reviewStates: {},
+      theoryNotes: [],
+    });
+    expect(scopedMetrics.totalLines).toBe(scopedLines.length);
+    expect(scopedMetrics.totalLines).toBeLessThan(lines.length);
   });
 });

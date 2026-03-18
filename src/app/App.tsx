@@ -1,12 +1,14 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { WorkspaceOverview } from '@/app/WorkspaceOverview';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { CourseSelector } from '@/components/CourseSelector';
 import { CatalogView } from '@/features/openings-catalog/CatalogView';
 import { ExplorerView } from '@/features/opening-explorer/ExplorerView';
 import { RepertoireView } from '@/features/repertoire/RepertoireView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { TheoryView } from '@/features/theory/TheoryView';
 import { TrainingView } from '@/features/training/TrainingView';
+import { buildFamilyIndex, normalizeFamily } from '@/lib/chess/familyIndex';
 import { createTrainingLines } from '@/lib/training/cards';
 import { buildTrainingMetrics } from '@/lib/training/metrics';
 import { useAppStore } from '@/store/useAppStore';
@@ -49,10 +51,13 @@ export function App() {
     saveReviewState,
     saveTheoryNote,
     deleteTheoryNote,
+    activeCourseKey,
     saveRepertoireLine,
     toggleRepertoireLine,
     createRepertoireFromOpening,
     importRepertoirePgn,
+    selectCourse,
+    clearCourse,
   } = useAppStore();
 
   useEffect(() => {
@@ -74,6 +79,39 @@ export function App() {
       }),
     [allLines, graph, reviewStates, theoryNotes],
   );
+  const familyIndex = useMemo(() => buildFamilyIndex(openings), [openings]);
+  const courseOpeningIds = useMemo(() => {
+    if (!activeCourseKey) return undefined;
+    const entries = familyIndex.openingsByFamily.get(activeCourseKey);
+    return entries ? new Set(entries.map((e) => e.id)) : undefined;
+  }, [activeCourseKey, familyIndex]);
+  const scopedLines = useMemo(
+    () => (courseOpeningIds ? allLines.filter((l) => courseOpeningIds.has(l.lineSourceId)) : allLines),
+    [allLines, courseOpeningIds],
+  );
+  const scopedMetrics = useMemo(
+    () =>
+      courseOpeningIds
+        ? buildTrainingMetrics({ lines: scopedLines, graph, reviewStates, theoryNotes })
+        : trainingMetrics,
+    [courseOpeningIds, scopedLines, graph, reviewStates, theoryNotes, trainingMetrics],
+  );
+  const scopedRepertoireLines = useMemo(
+    () =>
+      courseOpeningIds
+        ? repertoireLines.filter((l) => l.rootOpeningId && courseOpeningIds.has(l.rootOpeningId))
+        : repertoireLines,
+    [repertoireLines, courseOpeningIds],
+  );
+  const scopedOpenings = useMemo(
+    () => (courseOpeningIds ? openings.filter((o) => courseOpeningIds.has(o.id)) : openings),
+    [openings, courseOpeningIds],
+  );
+  const activeCourse = useMemo(
+    () => familyIndex.groups.find((g) => g.key === activeCourseKey),
+    [familyIndex.groups, activeCourseKey],
+  );
+
   const handleQueryChange = (nextQuery: string) => {
     startTransition(() => {
       setQuery(nextQuery);
@@ -154,7 +192,18 @@ export function App() {
           loadedOpenings={openings.length}
           enabledRepertoireLines={repertoireLines.filter((line) => line.enabled).length}
           theoryNotes={theoryNotes.length}
-          dueCards={trainingMetrics.dueLines}
+          dueCards={scopedMetrics.dueLines}
+          activeCourse={activeCourse}
+          courseLineCount={courseOpeningIds ? scopedLines.length : undefined}
+        />
+      ) : null}
+
+      {!isHydrating ? (
+        <CourseSelector
+          familyIndex={familyIndex}
+          activeCourseKey={activeCourseKey}
+          onSelectCourse={selectCourse}
+          onClearCourse={clearCourse}
         />
       ) : null}
 
@@ -182,6 +231,8 @@ export function App() {
           query={query}
           onQueryChange={handleQueryChange}
           searchInputRef={searchInputRef}
+          onSelectCourse={selectCourse}
+          courseOpeningIds={courseOpeningIds}
         />
       ) : null}
 
@@ -194,18 +245,19 @@ export function App() {
           onReset={resetExplorerToOpening}
           onOpenCatalog={() => setActiveTab('catalog')}
           onLoadSelectedOpening={selectedOpeningId ? () => selectOpening(selectedOpeningId) : undefined}
+          courseOpeningIds={courseOpeningIds}
         />
       ) : null}
 
       {!isHydrating && activeTab === 'training' ? (
         <TrainingView
           graph={graph}
-          allLines={allLines}
+          allLines={scopedLines}
           settings={settings}
           reviewStates={reviewStates}
           theoryNotes={theoryNotes}
-          repertoireLines={repertoireLines}
-          metrics={trainingMetrics}
+          repertoireLines={scopedRepertoireLines}
+          metrics={scopedMetrics}
           onSaveReviewState={saveReviewState}
           hasLoadedBuckets={loadedBuckets.length > 0}
         />
@@ -213,8 +265,8 @@ export function App() {
 
       {!isHydrating && activeTab === 'repertoire' ? (
         <RepertoireView
-          openings={openings}
-          repertoireLines={repertoireLines}
+          openings={scopedOpenings}
+          repertoireLines={scopedRepertoireLines}
           selectedOpeningId={selectedOpeningId}
           onCreateFromOpening={createRepertoireFromOpening}
           onImportPgn={importRepertoirePgn}
@@ -231,6 +283,7 @@ export function App() {
           onSaveNote={saveTheoryNote}
           onDeleteNote={deleteTheoryNote}
           onOpenCatalog={() => setActiveTab('catalog')}
+          courseOpeningIds={courseOpeningIds}
         />
       ) : null}
       {!isHydrating && activeTab === 'settings' ? (

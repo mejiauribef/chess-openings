@@ -5,6 +5,7 @@ import type { RepertoireLine } from '@/domain/repertoire';
 import type { ReviewState, TrainingSettings } from '@/domain/training';
 import { defaultTrainingSettings } from '@/domain/training';
 import { importPgnRepertoire } from '@/lib/chess/pgn';
+import { normalizeFamily } from '@/lib/chess/familyIndex';
 import {
   createEmptyGraph,
   deriveBucketKey,
@@ -56,6 +57,7 @@ interface AppState {
   loadingBuckets: string[];
   theoryNotes: TheoryNote[];
   repertoireLines: RepertoireLine[];
+  activeCourseKey?: string;
   selectedOpeningId?: string;
   selectedNodeId?: string;
   explorerPath: string[];
@@ -63,6 +65,8 @@ interface AppState {
   reviewStates: Record<string, ReviewState>;
   initialize: () => Promise<void>;
   setActiveTab: (tab: AppTab) => void;
+  selectCourse: (familyKey: string) => void;
+  clearCourse: () => void;
   selectOpening: (openingId: string) => void;
   selectNode: (nodeId: string) => void;
   selectExplorerMove: (uci: string) => void;
@@ -153,6 +157,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   setActiveTab: (activeTab) => set({ activeTab }),
+  selectCourse: (familyKey) => {
+    const openings = get().openings;
+    const familyOpenings = openings.filter(
+      (o) => normalizeFamily(o.family) === familyKey,
+    );
+    const shallowest = familyOpenings.length > 0
+      ? familyOpenings.reduce((best, o) => (o.depth < best.depth ? o : best))
+      : undefined;
+
+    set({ activeCourseKey: familyKey });
+
+    if (shallowest) {
+      get().selectOpening(shallowest.id);
+    }
+  },
+  clearCourse: () => set({ activeCourseKey: undefined }),
   selectOpening: (openingId) => {
     const graph = get().graph;
     const opening = get().openings.find((candidate) => candidate.id === openingId);

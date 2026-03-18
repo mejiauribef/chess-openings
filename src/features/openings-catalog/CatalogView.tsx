@@ -4,6 +4,7 @@ import type { OpeningCatalogEntry, OpeningEntry, TheoryNote } from '@/domain/ope
 import type { OpeningGraph } from '@/domain/position';
 import type { RepertoireLine } from '@/domain/repertoire';
 import { searchOpenings } from '@/lib/search/openingSearch';
+import { normalizeFamily } from '@/lib/chess/familyIndex';
 import { applyUciLine, getNodeLabels, getOpeningNameForNode } from '@/lib/chess/openingGraph';
 import { toOpeningSummary } from '@/data/mappers/openingMapper';
 import { BoardPanel } from '@/components/BoardPanel';
@@ -25,6 +26,8 @@ interface CatalogViewProps {
   query: string;
   onQueryChange: (query: string) => void;
   searchInputRef?: RefObject<HTMLInputElement | null>;
+  onSelectCourse?: (familyKey: string) => void;
+  courseOpeningIds?: Set<string>;
 }
 
 export function CatalogView({
@@ -40,15 +43,24 @@ export function CatalogView({
   query,
   onQueryChange,
   searchInputRef,
+  onSelectCourse,
+  courseOpeningIds,
 }: CatalogViewProps) {
   const deferredQuery = useDeferredValue(query);
   const [paginationState, setPaginationState] = useState({
     query: '',
     visibleCount: CATALOG_PAGE_SIZE,
   });
-  const filtered = useMemo(
+  const searchResults = useMemo(
     () => searchOpenings(openings, deferredQuery),
     [openings, deferredQuery],
+  );
+  const filtered = useMemo(
+    () =>
+      courseOpeningIds
+        ? searchResults.filter((o) => courseOpeningIds.has(o.id))
+        : searchResults,
+    [searchResults, courseOpeningIds],
   );
   const visibleCount =
     paginationState.query === deferredQuery ? paginationState.visibleCount : CATALOG_PAGE_SIZE;
@@ -172,6 +184,24 @@ export function CatalogView({
               <strong>Preview:</strong> {selectedOpeningSummary.movePreviewSan}
             </p>
           </div>
+          {onSelectCourse ? (
+            <div className="button-row">
+              <button
+                type="button"
+                onClick={() =>
+                  onSelectCourse(normalizeFamily(selectedOpeningSummary.family))
+                }
+              >
+                Enfocar {selectedOpeningSummary.family} ({
+                  openings.filter(
+                    (o) =>
+                      normalizeFamily(o.family) ===
+                      normalizeFamily(selectedOpeningSummary.family),
+                  ).length
+                } variaciones)
+              </button>
+            </div>
+          ) : null}
           {selectedOpening ? (
             <BoardPanel title="Linea principal" uciMoves={selectedOpening.uciMoves} />
           ) : (

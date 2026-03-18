@@ -17,6 +17,7 @@ interface TheoryViewProps {
   onSaveNote: (note: TheoryNote) => Promise<TheoryNote>;
   onDeleteNote: (noteId: string) => Promise<void>;
   onOpenCatalog: () => void;
+  courseOpeningIds?: Set<string>;
 }
 
 interface TheoryFormState {
@@ -91,6 +92,7 @@ export function TheoryView({
   onSaveNote,
   onDeleteNote,
   onOpenCatalog,
+  courseOpeningIds,
 }: TheoryViewProps) {
   const [selectedNoteId, setSelectedNoteId] = useState<string>();
   const [draft, setDraft] = useState<{ key: string; form: TheoryFormState }>({
@@ -101,6 +103,13 @@ export function TheoryView({
     () => theoryNotes.filter((note) => note.nodeId === selectedNodeId),
     [selectedNodeId, theoryNotes],
   );
+  const courseNotes = useMemo(() => {
+    if (!courseOpeningIds) return [];
+    return theoryNotes.filter((note) => {
+      const node = graph.nodes[note.nodeId];
+      return node?.openingIds.some((id) => courseOpeningIds.has(id));
+    });
+  }, [theoryNotes, graph, courseOpeningIds]);
   const resolvedSelectedNoteId =
     nodeNotes.find((note) => note.id === selectedNoteId)?.id ?? nodeNotes[0]?.id;
   const activeNote = nodeNotes.find((note) => note.id === resolvedSelectedNoteId) ?? nodeNotes[0];
@@ -240,6 +249,25 @@ export function TheoryView({
             <p className="empty-state">Aun no hay notas para esta posicion. Puedes crear una abajo.</p>
           )}
         </article>
+
+        {courseOpeningIds && courseNotes.length > 0 ? (
+          <article className="info-panel">
+            <h3>Notas del curso ({courseNotes.length})</h3>
+            <div className="stack-list">
+              {courseNotes.slice(0, 20).map((note) => (
+                <button
+                  key={note.id ?? `${note.nodeId}-${note.title}`}
+                  type="button"
+                  className={`opening-list__item ${note.nodeId === selectedNodeId ? 'is-active' : ''}`}
+                  onClick={() => onSelectNode(note.nodeId)}
+                >
+                  <strong>{note.title}</strong>
+                  <span>{note.summary}</span>
+                </button>
+              ))}
+            </div>
+          </article>
+        ) : null}
       </SectionCard>
 
       <SectionCard title="Editor de teoria" eyebrow={activeNote ? 'Editando nota' : 'Nueva nota'}>

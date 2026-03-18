@@ -1,8 +1,12 @@
+import type { FamilyGroup } from '@/lib/chess/familyIndex';
+
 interface WorkspaceOverviewProps {
   loadedOpenings: number;
   enabledRepertoireLines: number;
   theoryNotes: number;
   dueCards: number;
+  activeCourse?: FamilyGroup;
+  courseLineCount?: number;
 }
 
 const SHORTCUTS = ['Alt+1 Catalogo', 'Alt+2 Explorador', 'Alt+3 Entrenamiento', '/ Buscar'];
@@ -12,9 +16,19 @@ export function WorkspaceOverview({
   enabledRepertoireLines,
   theoryNotes,
   dueCards,
+  activeCourse,
+  courseLineCount,
 }: WorkspaceOverviewProps) {
   return (
     <section className="workspace-overview" aria-label="Estado del workspace">
+      {activeCourse ? (
+        <article className="workspace-overview__card">
+          <span>Curso activo</span>
+          <strong>{activeCourse.displayName}</strong>
+          <small>{activeCourse.openingCount} variaciones &middot; {courseLineCount ?? 0} lineas</small>
+        </article>
+      ) : null}
+
       <article className="workspace-overview__card">
         <span>Catalogo</span>
         <strong>{loadedOpenings}</strong>

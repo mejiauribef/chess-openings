@@ -578,6 +578,100 @@ code {
   line-height: 1.6;
 }
 
+.course-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 20px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.course-bar__active {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.course-bar__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.course-bar__label strong {
+  color: #fbbf24;
+}
+
+.course-bar__label small {
+  color: #cbd5e1;
+}
+
+.course-bar__search-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.course-bar__search {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  font: inherit;
+}
+
+.course-bar__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  z-index: 50;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+}
+
+.course-bar__option {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  background: transparent;
+  color: #e2e8f0;
+  border-radius: 10px;
+}
+
+.course-bar__option:hover {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.course-bar__option strong {
+  color: #fbbf24;
+}
+
+.course-bar__option small {
+  color: #94a3b8;
+}
+
+.move-chip--in-course {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fef3c7;
+}
+
+.move-chip--out-of-course {
+  opacity: 0.45;
+}
+
 @media (max-width: 900px) {
   .feature-grid {
     grid-template-columns: 1fr;
