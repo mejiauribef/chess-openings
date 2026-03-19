@@ -1,14 +1,14 @@
 import type { OpeningEntry } from '@/domain/opening';
 import type { RepertoireLine } from '@/domain/repertoire';
 import type { OpeningGraph } from '@/domain/position';
-import type { ReviewState, TrainingLine, TrainingSettings } from '@/domain/training';
+import type { ReviewState, TrainingLine, TrainingSettings, TrainingSourceSummary } from '@/domain/training';
 import { tryResolveNodeIdViaGraph } from '@/lib/chess/openingGraph';
 
 export function normalizeTrainingAnswer(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-function getDepthFromTags(tags: string[]): number {
+export function getDepthFromTags(tags: string[]): number {
   const depthTag = tags.find((tag) => tag.startsWith('depth:'));
   return depthTag ? Number(depthTag.split(':')[1]) : 0;
 }
@@ -184,4 +184,66 @@ export function selectTrainingLines(options: {
       left.id.localeCompare(right.id)
     );
   });
+}
+
+export function buildTrainingSourceSummaries(
+  lines: TrainingLine[],
+  reviewStates: Record<string, ReviewState>,
+  now: Date = new Date(),
+): TrainingSourceSummary[] {
+  const grouped = new Map<
+    string,
+    {
+      sourceId: string;
+      openingName: string;
+      lineCount: number;
+      dueCount: number;
+      minDepth: number;
+      maxDepth: number;
+      difficultyTotal: number;
+    }
+  >();
+
+  lines.forEach((line) => {
+    const depth = getDepthFromTags(line.tags);
+    const reviewState = reviewStates[line.id];
+    const isDue = !reviewState || new Date(reviewState.dueAt).getTime() <= now.getTime();
+    const entry = grouped.get(line.lineSourceId) ?? {
+      sourceId: line.lineSourceId,
+      openingName: line.openingName || 'Linea sin nombre',
+      lineCount: 0,
+      dueCount: 0,
+      minDepth: Number.POSITIVE_INFINITY,
+      maxDepth: 0,
+      difficultyTotal: 0,
+    };
+
+    entry.lineCount += 1;
+    entry.difficultyTotal += line.difficulty;
+    entry.minDepth = Math.min(entry.minDepth, depth || 0);
+    entry.maxDepth = Math.max(entry.maxDepth, depth || 0);
+
+    if (isDue) {
+      entry.dueCount += 1;
+    }
+
+    grouped.set(line.lineSourceId, entry);
+  });
+
+  return [...grouped.values()]
+    .map((entry) => ({
+      sourceId: entry.sourceId,
+      openingName: entry.openingName,
+      lineCount: entry.lineCount,
+      dueCount: entry.dueCount,
+      minDepth: Number.isFinite(entry.minDepth) ? entry.minDepth : 0,
+      maxDepth: entry.maxDepth,
+      averageDifficulty: entry.lineCount > 0 ? entry.difficultyTotal / entry.lineCount : 0,
+    }))
+    .sort(
+      (left, right) =>
+        right.dueCount - left.dueCount ||
+        right.lineCount - left.lineCount ||
+        left.openingName.localeCompare(right.openingName),
+    );
 }

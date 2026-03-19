@@ -18,7 +18,7 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
               onClick={() =>
                 onChange({
                   minimumDepth: 5,
-                  maximumDepth: 10,
+                  maximumDepth: 12,
                   includeSidelines: true,
                   catalogScope: 'catalog',
                   hintsEnabled: true,
@@ -35,7 +35,7 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
               onClick={() =>
                 onChange({
                   minimumDepth: 6,
-                  maximumDepth: 14,
+                  maximumDepth: 16,
                   includeSidelines: false,
                   catalogScope: 'repertoire',
                   hintsEnabled: false,
@@ -53,11 +53,12 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
           <span>Profundidad minima (jugadas completas)</span>
           <input
             type="number"
-            min={0}
+            min={5}
             max={20}
             value={settings.minimumDepth}
-            onChange={(event) => { const v = Number(event.target.value); if (Number.isFinite(v)) { onChange({ minimumDepth: v }); } }}
+            onChange={(event) => { const v = Number(event.target.value); if (Number.isFinite(v)) { onChange({ minimumDepth: Math.max(5, v) }); } }}
           />
+          <small className="field__hint">La configuracion recomendada empieza en 5 o 6 para evitar ramas demasiado cortas.</small>
         </label>
 
         <label className="field">

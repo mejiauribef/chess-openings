@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "data:sample": "tsx scripts/import-lichess-openings.ts --mode=sample && tsx scripts/import-eco-json.ts --mode=sample && tsx scripts/build-opening-graph.ts --mode=sample",
     "data:full": "tsx scripts/import-lichess-openings.ts --mode=full && tsx scripts/import-eco-json.ts --mode=full && tsx scripts/build-opening-graph.ts --mode=full",
+    "data:audit": "tsx scripts/analyze-dataset.ts",
     "import:pgn": "tsx scripts/import-pgn.ts"
   },
   "dependencies": {

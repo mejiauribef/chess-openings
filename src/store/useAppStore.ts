@@ -4,6 +4,7 @@ import type { OpeningGraph } from '@/domain/position';
 import type { RepertoireLine } from '@/domain/repertoire';
 import type { ReviewState, TrainingSettings } from '@/domain/training';
 import { defaultTrainingSettings } from '@/domain/training';
+import { pickRepresentativeOpening } from '@/lib/chess/courseOverview';
 import { importPgnRepertoire } from '@/lib/chess/pgn';
 import { normalizeFamily } from '@/lib/chess/familyIndex';
 import {
@@ -43,6 +44,25 @@ function tryResolveNodeIdFromUciLine(graph: OpeningGraph, uciMoves: string[]): s
   } catch {
     return undefined;
   }
+}
+
+function getFamilyOpenings(openings: OpeningCatalogEntry[], familyKey: string): OpeningCatalogEntry[] {
+  return openings.filter((opening) => normalizeFamily(opening.family) === familyKey);
+}
+
+function getRepresentativeOpeningIdsByBucket(openings: OpeningCatalogEntry[], minimumDepth: number): string[] {
+  const openingsByBucket = new Map<string, OpeningCatalogEntry[]>();
+
+  openings.forEach((opening) => {
+    const entries = openingsByBucket.get(opening.bucketKey) ?? [];
+    entries.push(opening);
+    openingsByBucket.set(opening.bucketKey, entries);
+  });
+
+  return [...openingsByBucket.values()]
+    .map((entries) => pickRepresentativeOpening(entries, minimumDepth) ?? entries[0])
+    .filter(Boolean)
+    .map((opening) => opening.id);
 }
 
 interface AppState {
@@ -139,6 +159,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         repertoireLines,
         settings,
         reviewStates,
+        activeCourseKey: defaultOpening ? normalizeFamily(defaultOpening.family) : undefined,
         selectedOpeningId: defaultOpening?.id,
         selectedNodeId: defaultOpeningDetail
           ? tryResolveNodeIdFromUciLine(workingGraph, defaultOpeningDetail.uciMoves)
@@ -147,7 +168,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       if (defaultOpening) {
-        void get().ensureOpeningLoaded(defaultOpening.id);
+        void get().selectOpening(defaultOpening.id);
       }
     } catch (error) {
       set({
@@ -159,18 +180,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveTab: (activeTab) => set({ activeTab }),
   selectCourse: (familyKey) => {
     const openings = get().openings;
-    const familyOpenings = openings.filter(
-      (o) => normalizeFamily(o.family) === familyKey,
-    );
-    const shallowest = familyOpenings.length > 0
-      ? familyOpenings.reduce((best, o) => (o.depth < best.depth ? o : best))
-      : undefined;
+    const minimumDepth = get().settings.minimumDepth;
+    const familyOpenings = getFamilyOpenings(openings, familyKey);
+    const representative =
+      pickRepresentativeOpening(familyOpenings, minimumDepth) ??
+      familyOpenings[0];
 
     set({ activeCourseKey: familyKey });
 
-    if (shallowest) {
-      get().selectOpening(shallowest.id);
+    if (representative) {
+      get().selectOpening(representative.id);
     }
+
+    getRepresentativeOpeningIdsByBucket(familyOpenings, minimumDepth).forEach((openingId) => {
+      void get().ensureOpeningLoaded(openingId);
+    });
   },
   clearCourse: () => set({ activeCourseKey: undefined }),
   selectOpening: (openingId) => {
@@ -186,8 +210,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const selectedNodeId = openingDetail
       ? tryResolveNodeIdFromUciLine(graph, openingDetail.uciMoves)
       : undefined;
+    const familyKey = normalizeFamily(opening.family);
+    const familyOpenings = getFamilyOpenings(get().openings, familyKey);
+    const minimumDepth = get().settings.minimumDepth;
 
     set({
+      activeCourseKey: familyKey,
       selectedOpeningId: openingId,
       selectedNodeId,
       explorerPath: openingDetail?.uciMoves ?? [],
@@ -196,6 +224,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!isLoaded) {
       void get().ensureOpeningLoaded(openingId);
     }
+
+    getRepresentativeOpeningIdsByBucket(familyOpenings, minimumDepth).forEach((representativeId) => {
+      if (representativeId !== openingId || !isLoaded) {
+        void get().ensureOpeningLoaded(representativeId);
+      }
+    });
   },
   selectNode: (nodeId) => {
     const graph = get().graph;

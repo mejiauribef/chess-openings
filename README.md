@@ -2,6 +2,13 @@
 
 Aplicacion local-first para aprender aperturas de ajedrez con catalogo, explorador por posicion, entrenamiento y pipeline reproducible de datos.
 
+La UX principal ahora esta centrada en una sola pantalla de estudio:
+
+- eliges una apertura o familia,
+- el sistema arma un curso con sus subvariantes utiles,
+- practicas desde el mismo workspace,
+- y dejas repertorio, teoria y ajustes avanzados en paneles expandibles.
+
 ## Stack
 
 - React + TypeScript + Vite
@@ -29,7 +36,8 @@ Este repo ya incluye:
 - editor local de teoria con markdown, tags y enlaces entre posiciones,
 - metricas de progreso con cobertura, errores, retention, estabilidad y heatmap,
 - bootstrap inicial con `openings.bootstrap.json` para abrir una linea entrenable desde el primer render,
-- overview del workspace, shortcuts de teclado y estados vacios guiados,
+- workspace principal de estudio enfocado en una apertura/familia a la vez,
+- estados vacios guiados para evitar mazos triviales o cursos sin carga suficiente,
 - tests de transposiciones, PGN, importadores y entrenamiento,
 - flujos criticos E2E para shell, entrenamiento, teoria y persistencia tras reload,
 - documentacion de arquitectura y roadmap.
@@ -78,11 +86,18 @@ Modo full:
 corepack pnpm data:full
 ```
 
+Auditoria del dataset actual:
+
+```bash
+corepack pnpm data:audit
+```
+
 La pipeline full genera:
 
 - `openings.catalog.json` en formato compacto para arranque rapido,
 - `openings.bootstrap.json` con una linea inicial util para primer render offline,
 - `openings.manifest.json` para versionar assets y cache local,
+- `openings.audit.json` con resumen reproducible de cobertura por familia, profundidad y fuentes,
 - `slices/graph-*.json` y `slices/openings-*.json` para carga por bucket ECO.
 
 Los layouts exactos esperados por la pipeline full estan documentados en [data/sources/README.md](data/sources/README.md).

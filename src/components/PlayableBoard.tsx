@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import type { Square } from 'react-chessboard/dist/chessboard/types';
@@ -38,26 +38,11 @@ export function PlayableBoard({
   const [mistakes, setMistakes] = useState(0);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [feedbackState, setFeedbackState] = useState<FeedbackState>('idle');
-  const [customSquareStyles, setCustomSquareStyles] = useState<Record<string, React.CSSProperties>>({});
   const [customArrows, setCustomArrows] = useState<[Square, Square, string?][]>([]);
   const [boardWidth, setBoardWidth] = useState(400);
   const containerRef = useRef<HTMLDivElement>(null);
   const lineCompleteCalledRef = useRef(false);
-  const [fen, setFen] = useState(chessRef.current.fen());
-
-  // Reset state when lineMoves change
-  useEffect(() => {
-    const chess = new Chess();
-    chessRef.current = chess;
-    setCurrentPly(0);
-    setMistakes(0);
-    setSelectedSquare(null);
-    setFeedbackState('idle');
-    setCustomSquareStyles({});
-    setCustomArrows([]);
-    setFen(chess.fen());
-    lineCompleteCalledRef.current = false;
-  }, [lineMoves]);
+  const [fen, setFen] = useState(() => new Chess().fen());
 
   // Responsive board sizing
   useEffect(() => {
@@ -75,55 +60,60 @@ export function PlayableBoard({
     return () => observer.disconnect();
   }, []);
 
-  const isPlayerTurn = useCallback(() => {
-    const sideToMove = chessRef.current.turn();
-    return (playerColor === 'white' && sideToMove === 'w') ||
-      (playerColor === 'black' && sideToMove === 'b');
-  }, [playerColor]);
+  const isPlayerTurn =
+    currentPly < lineMoves.length &&
+    (playerColor === 'white' ? currentPly % 2 === 0 : currentPly % 2 === 1);
 
   const advancePly = useCallback(() => {
-    setCurrentPly((prev) => prev + 1);
-  }, []);
+    setCurrentPly((prev) => {
+      const next = prev + 1;
 
-  // Show learn mode hint
-  useEffect(() => {
-    if (mode !== 'learn' || !hintsEnabled || feedbackState !== 'idle') {
-      setCustomSquareStyles({});
-      return;
-    }
+      if (next >= lineMoves.length && lineMoves.length > 0 && !lineCompleteCalledRef.current) {
+        lineCompleteCalledRef.current = true;
+        queueMicrotask(() => {
+          setFeedbackState('complete');
+          onLineComplete({ mistakes, completed: true });
+        });
+      }
 
-    if (!isPlayerTurn()) return;
-
-    const expectedUci = lineMoves[currentPly];
-    if (!expectedUci) return;
-
-    const { from } = uciToMove(expectedUci);
-    setCustomSquareStyles({
-      [from]: { background: 'rgba(245, 158, 11, 0.4)', borderRadius: '4px' },
+      return next;
     });
-  }, [mode, hintsEnabled, currentPly, lineMoves, isPlayerTurn, feedbackState]);
+  }, [lineMoves.length, mistakes, onLineComplete]);
 
-  // Show legal move dots when a piece is selected (click-to-move)
-  useEffect(() => {
-    if (!selectedSquare) return;
+  const customSquareStyles = useMemo<Record<string, React.CSSProperties>>(() => {
+    if (selectedSquare) {
+      const chess = new Chess(fen);
+      const moves = chess.moves({ square: selectedSquare, verbose: true });
+      const styles: Record<string, React.CSSProperties> = {
+        [selectedSquare]: { background: 'rgba(245, 158, 11, 0.5)' },
+      };
 
-    const chess = chessRef.current;
-    const moves = chess.moves({ square: selectedSquare, verbose: true });
-    const styles: Record<string, React.CSSProperties> = {
-      [selectedSquare]: { background: 'rgba(245, 158, 11, 0.5)' },
-    };
+      for (const move of moves) {
+        styles[move.to] = squareStyle('rgba(34, 197, 94, 0.4)');
+      }
 
-    for (const move of moves) {
-      styles[move.to] = squareStyle('rgba(34, 197, 94, 0.4)');
+      return styles;
     }
 
-    setCustomSquareStyles(styles);
-  }, [selectedSquare]);
+    if (mode === 'learn' && hintsEnabled && feedbackState === 'idle' && isPlayerTurn) {
+      const expectedUci = lineMoves[currentPly];
+      if (!expectedUci) {
+        return {};
+      }
+
+      const { from } = uciToMove(expectedUci);
+      return {
+        [from]: { background: 'rgba(245, 158, 11, 0.4)', borderRadius: '4px' },
+      };
+    }
+
+    return {};
+  }, [selectedSquare, fen, mode, hintsEnabled, feedbackState, isPlayerTurn, lineMoves, currentPly]);
 
   // Opponent auto-play
   useEffect(() => {
     if (currentPly >= lineMoves.length) return;
-    if (isPlayerTurn()) return;
+    if (isPlayerTurn) return;
     if (feedbackState !== 'idle') return;
 
     const timer = setTimeout(() => {
@@ -142,17 +132,10 @@ export function PlayableBoard({
     return () => clearTimeout(timer);
   }, [currentPly, lineMoves, isPlayerTurn, opponentDelay, feedbackState, advancePly]);
 
-  // Line complete detection
-  useEffect(() => {
-    if (currentPly >= lineMoves.length && lineMoves.length > 0 && !lineCompleteCalledRef.current) {
-      lineCompleteCalledRef.current = true;
-      setFeedbackState('complete');
-      onLineComplete({ mistakes, completed: true });
-    }
-  }, [currentPly, lineMoves.length, mistakes, onLineComplete]);
-
   function attemptMove(from: string, to: string, promotion?: string): boolean {
-    if (!isPlayerTurn()) return false;
+    const sideToMove = chessRef.current.turn();
+    const playerSide = playerColor === 'white' ? 'w' : 'b';
+    if (sideToMove !== playerSide) return false;
     if (feedbackState !== 'idle') return false;
 
     const expectedUci = lineMoves[currentPly];
@@ -175,10 +158,11 @@ export function PlayableBoard({
       setFen(chess.fen());
       setSelectedSquare(null);
       setCustomArrows([]);
-      setCustomSquareStyles({});
 
       setTimeout(() => {
-        setFeedbackState('idle');
+        if (currentPly + 1 < lineMoves.length) {
+          setFeedbackState('idle');
+        }
         advancePly();
       }, 300);
 
@@ -220,7 +204,6 @@ export function PlayableBoard({
     setTimeout(() => {
       setFeedbackState('idle');
       setCustomArrows([]);
-      setCustomSquareStyles({});
     }, autoRetryDelay);
 
     return false;
@@ -228,16 +211,15 @@ export function PlayableBoard({
 
   function onPieceDrop(sourceSquare: Square, targetSquare: Square, piece: string): boolean {
     const promotion = piece[1]?.toLowerCase();
-    return attemptMove(sourceSquare, targetSquare, promotion === 'p' ? undefined : undefined);
+    return attemptMove(sourceSquare, targetSquare, promotion && promotion !== 'p' ? promotion : undefined);
   }
 
   function onSquareClick(square: Square) {
-    if (!isPlayerTurn() || feedbackState !== 'idle') return;
+    if (!isPlayerTurn || feedbackState !== 'idle') return;
 
     if (selectedSquare) {
       if (selectedSquare === square) {
         setSelectedSquare(null);
-        setCustomSquareStyles({});
         return;
       }
 
@@ -251,7 +233,6 @@ export function PlayableBoard({
           setSelectedSquare(square);
         } else {
           setSelectedSquare(null);
-          setCustomSquareStyles({});
         }
       }
       return;
@@ -307,7 +288,7 @@ export function PlayableBoard({
       <Chessboard
         position={fen}
         boardOrientation={playerColor}
-        arePiecesDraggable={isPlayerTurn() && feedbackState === 'idle'}
+        arePiecesDraggable={isPlayerTurn && feedbackState === 'idle'}
         isDraggablePiece={({ piece }) => {
           const side = playerColor === 'white' ? 'w' : 'b';
           return piece[0] === side;

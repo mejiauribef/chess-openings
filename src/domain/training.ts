@@ -24,7 +24,7 @@ export const reviewStateSchema = z.object({
 
 export const trainingSettingsSchema = z.object({
   maximumDepth: z.number().int().positive(),
-  minimumDepth: z.number().int().nonnegative().default(6),
+  minimumDepth: z.number().int().nonnegative().default(0),
   includeSidelines: z.boolean(),
   catalogScope: z.enum(['repertoire', 'catalog']),
   hintsEnabled: z.boolean(),
@@ -37,6 +37,16 @@ export type TrainingLine = z.infer<typeof trainingLineSchema>;
 export type ReviewState = z.infer<typeof reviewStateSchema>;
 export type TrainingSettings = z.infer<typeof trainingSettingsSchema>;
 export type TrainingMode = 'learn' | 'practice' | 'drill';
+
+export interface TrainingSourceSummary {
+  sourceId: string;
+  openingName: string;
+  lineCount: number;
+  dueCount: number;
+  minDepth: number;
+  maxDepth: number;
+  averageDifficulty: number;
+}
 
 export interface CoverageMetric {
   label: string;
@@ -74,7 +84,7 @@ export interface TrainingMetrics {
 
 export const defaultTrainingSettings: TrainingSettings = {
   maximumDepth: 12,
-  minimumDepth: 6,
+  minimumDepth: 5,
   includeSidelines: true,
   catalogScope: 'catalog',
   hintsEnabled: true,

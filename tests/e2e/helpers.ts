@@ -1,10 +1,12 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 async function waitForAppShell(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { name: /Aprende aperturas por posicion/i })).toBeVisible({
+  await expect(page.getByRole('heading', { name: /elige una apertura y practica/i })).toBeVisible({
     timeout: 90_000,
   });
-  await expect(page.locator('.opening-list__item').first()).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByPlaceholder('Ej: Sicilian, B90, Najdorf, e2e4')).toBeVisible({
+    timeout: 90_000,
+  });
 }
 
 export async function gotoApp(page: Page): Promise<void> {
@@ -21,12 +23,18 @@ export async function waitForSelectedOpeningLoaded(
   } else {
     await waitForAppShell(page);
   }
-  await expect(page.locator('.opening-list__item.is-active').first()).toBeVisible({
+
+  await expect(page.getByRole('heading', { name: 'Practica', exact: true })).toBeVisible({
     timeout: 120_000,
   });
-  await expect(page.getByRole('heading', { name: 'Linea principal' })).toBeVisible({
+  await expect(page.locator('.playable-board')).toBeVisible({
     timeout: 120_000,
   });
+}
+
+export async function openWorkspaceDrawer(page: Page, title: string): Promise<void> {
+  const drawer = page.locator('.workspace-drawer').filter({ hasText: title }).first();
+  await drawer.locator('summary').click();
 }
 
 export async function forceClick(locator: Locator): Promise<void> {
