@@ -1,4 +1,5 @@
 import type { OpeningEntry } from '@/domain/opening';
+import type { OpeningCatalogEntry } from '@/domain/opening';
 import type { RepertoireLine } from '@/domain/repertoire';
 import type { OpeningGraph } from '@/domain/position';
 import type { ReviewState, TrainingLine, TrainingSettings, TrainingSourceSummary } from '@/domain/training';
@@ -35,6 +36,10 @@ function getReviewPriority(reviewState: ReviewState | undefined, now: Date): num
   }
 
   return Math.max(0, 30 - Math.floor(dueDelta / (24 * 60 * 60 * 1000)));
+}
+
+function isMastered(reviewState: ReviewState | undefined): boolean {
+  return Boolean(reviewState && reviewState.lastGrade >= 3 && reviewState.streak >= 2 && reviewState.stability >= 4);
 }
 
 function buildLineTags(movePath: string[], opening?: OpeningEntry): string[] {
@@ -131,6 +136,63 @@ export function createTrainingLines(graph: OpeningGraph, repertoireLines: Repert
   return lines;
 }
 
+export function createCourseTrainingLines(options: {
+  graph: OpeningGraph;
+  courseOpenings: OpeningCatalogEntry[];
+  repertoireLines: RepertoireLine[];
+}): TrainingLine[] {
+  const courseOpeningIds = new Set(options.courseOpenings.map((opening) => opening.id));
+  const lines: TrainingLine[] = [];
+  const coveredOpeningIds = new Set<string>();
+
+  for (const repLine of options.repertoireLines.filter((line) => line.enabled)) {
+    if (!repLine.rootOpeningId || !courseOpeningIds.has(repLine.rootOpeningId) || repLine.movePath.length === 0) {
+      continue;
+    }
+
+    const opening = options.graph.openingsById[repLine.rootOpeningId];
+    const openingName = opening?.canonicalName ?? '';
+    const terminalNodeId = tryResolveNodeIdViaGraph(options.graph, repLine.movePath) ?? '';
+
+    lines.push({
+      id: `line-rep-${repLine.id}`,
+      lineSourceId: repLine.id,
+      color: repLine.color,
+      movePath: repLine.movePath,
+      openingName,
+      tags: [...repLine.tags, ...buildLineTags(repLine.movePath, opening), 'repertoire'],
+      difficulty: Math.min(10, Math.max(1, Math.floor(repLine.movePath.length / 2))),
+      terminalNodeId,
+    });
+
+    coveredOpeningIds.add(repLine.rootOpeningId);
+  }
+
+  for (const opening of options.courseOpenings) {
+    if (coveredOpeningIds.has(opening.id)) continue;
+
+    const graphOpening = options.graph.openingsById[opening.id];
+    if (!graphOpening || graphOpening.uciMoves.length === 0) continue;
+
+    const terminalNodeId = tryResolveNodeIdViaGraph(options.graph, graphOpening.uciMoves) ?? '';
+
+    for (const color of ['white', 'black'] as const) {
+      lines.push({
+        id: `line-cat-${graphOpening.id}-${color}`,
+        lineSourceId: graphOpening.id,
+        color,
+        movePath: graphOpening.uciMoves,
+        openingName: graphOpening.canonicalName,
+        tags: buildLineTags(graphOpening.uciMoves, graphOpening),
+        difficulty: Math.min(10, Math.max(1, Math.floor(graphOpening.uciMoves.length / 2))),
+        terminalNodeId,
+      });
+    }
+  }
+
+  return lines;
+}
+
 export function filterLinesBySettings(
   lines: TrainingLine[],
   settings: TrainingSettings,
@@ -205,6 +267,9 @@ export function buildTrainingSourceSummaries(
       namedLineCount?: number;
       lineCount: number;
       dueCount: number;
+      discoveredLineCount: number;
+      masteredLineCount: number;
+      newLineCount: number;
       minDepth: number;
       maxDepth: number;
       difficultyTotal: number;
@@ -227,6 +292,9 @@ export function buildTrainingSourceSummaries(
       namedLineCount: meta?.namedLineCount,
       lineCount: 0,
       dueCount: 0,
+      discoveredLineCount: 0,
+      masteredLineCount: 0,
+      newLineCount: 0,
       minDepth: Number.POSITIVE_INFINITY,
       maxDepth: 0,
       difficultyTotal: 0,
@@ -237,6 +305,16 @@ export function buildTrainingSourceSummaries(
     entry.difficultyTotal += line.difficulty;
     entry.minDepth = Math.min(entry.minDepth, depth || 0);
     entry.maxDepth = Math.max(entry.maxDepth, depth || 0);
+
+    if (!reviewState || reviewState.successes + reviewState.lapses === 0) {
+      entry.newLineCount += 1;
+    } else {
+      entry.discoveredLineCount += 1;
+    }
+
+    if (isMastered(reviewState)) {
+      entry.masteredLineCount += 1;
+    }
 
     if (isDue) {
       entry.dueCount += 1;
@@ -256,13 +334,20 @@ export function buildTrainingSourceSummaries(
       namedLineCount: entry.namedLineCount,
       lineCount: entry.lineCount,
       dueCount: entry.dueCount,
+      discoveredLineCount: entry.discoveredLineCount,
+      masteredLineCount: entry.masteredLineCount,
+      newLineCount: entry.newLineCount,
       minDepth: Number.isFinite(entry.minDepth) ? entry.minDepth : 0,
       maxDepth: entry.maxDepth,
       averageDifficulty: entry.lineCount > 0 ? entry.difficultyTotal / entry.lineCount : 0,
     }))
     .sort(
       (left, right) =>
+        Number(right.dueCount > 0) - Number(left.dueCount > 0) ||
+        Number(right.newLineCount > 0) - Number(left.newLineCount > 0) ||
+        right.discoveredLineCount - left.discoveredLineCount ||
         right.dueCount - left.dueCount ||
+        right.masteredLineCount - left.masteredLineCount ||
         right.lineCount - left.lineCount ||
         left.openingName.localeCompare(right.openingName),
     );

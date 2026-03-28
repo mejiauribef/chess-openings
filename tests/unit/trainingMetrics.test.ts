@@ -1,6 +1,6 @@
 import type { ReviewState, TrainingLine } from '@/domain/training';
 import { buildOpeningGraph, resolveNodeIdFromUciLine } from '@/lib/chess/openingGraph';
-import { createTrainingLines, selectTrainingLines } from '@/lib/training/cards';
+import { createCourseTrainingLines, createTrainingLines, selectTrainingLines } from '@/lib/training/cards';
 import { buildTrainingMetrics } from '@/lib/training/metrics';
 import { normalizeFamily } from '@/lib/chess/familyIndex';
 import { sampleOpenings } from '../fixtures/sampleOpenings';
@@ -153,5 +153,32 @@ describe('training metrics and line selection', () => {
     });
     expect(scopedMetrics.totalLines).toBe(scopedLines.length);
     expect(scopedMetrics.totalLines).toBeLessThan(lines.length);
+  });
+
+  it('builds only the active course lines when requested', () => {
+    const graph = buildOpeningGraph(sampleOpenings);
+    const courseOpenings = sampleOpenings
+      .filter((opening) => normalizeFamily(opening.family) === 'open')
+      .map((opening) => ({
+        id: opening.id,
+        eco: opening.eco,
+        canonicalName: opening.canonicalName,
+        aliases: opening.aliases,
+        family: opening.family,
+        subvariation: opening.subvariation,
+        depth: opening.depth,
+        bucketKey: opening.eco[0].toLowerCase(),
+        movePreviewSan: 'preview',
+        movePreviewUci: opening.uciMoves.slice(0, 2).join(' '),
+      }));
+
+    const lines = createCourseTrainingLines({
+      graph,
+      courseOpenings,
+      repertoireLines: [],
+    });
+
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.every((line) => courseOpenings.some((opening) => opening.id === line.lineSourceId))).toBe(true);
   });
 });

@@ -43,6 +43,7 @@ export function PlayableBoard({
   const containerRef = useRef<HTMLDivElement>(null);
   const lineCompleteCalledRef = useRef(false);
   const [fen, setFen] = useState(() => new Chess().fen());
+  const sanLine = useMemo(() => applySanLine(lineMoves), [lineMoves]);
 
   // Responsive board sizing
   useEffect(() => {
@@ -278,11 +279,35 @@ export function PlayableBoard({
             ? 'Linea completada sin errores!'
             : `Linea completada con ${mistakes} error(es)`
           : '';
+  const currentExpectedUci = currentPly < lineMoves.length ? lineMoves[currentPly] : undefined;
+  const currentExpectedSan = currentPly < sanLine.length ? sanLine[currentPly] : undefined;
+  const lastPlayedSan = currentPly > 0 ? sanLine[currentPly - 1] : undefined;
+  const nextPrompt =
+    currentExpectedSan && feedbackState === 'idle'
+      ? isPlayerTurn
+        ? `${lastPlayedSan ? `Si el rival juega ${lastPlayedSan}, ` : ''}responde ${currentExpectedSan}.`
+        : `Observa la respuesta del rival: ${currentExpectedSan}.`
+      : undefined;
 
   return (
     <div className="playable-board" ref={containerRef}>
       <div className={feedbackClass}>
-        {feedbackText && <p>{feedbackText}</p>}
+        {feedbackText ? (
+          <p>
+            {feedbackText}
+            {feedbackState === 'wrong' && currentExpectedSan && currentExpectedUci
+              ? ` Esperabamos ${currentExpectedSan} (${currentExpectedUci}).`
+              : ''}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="playable-board__prompt">
+        <p><strong>Progreso:</strong> {Math.min(currentPly + 1, lineMoves.length)}/{lineMoves.length} medios movimientos</p>
+        {nextPrompt ? <p><strong>Objetivo:</strong> {nextPrompt}</p> : null}
+        {mode === 'learn' && hintsEnabled && currentExpectedUci ? (
+          <p><strong>UCI objetivo:</strong> {currentExpectedUci}</p>
+        ) : null}
       </div>
 
       <Chessboard
@@ -308,4 +333,20 @@ export function PlayableBoard({
       ) : null}
     </div>
   );
+}
+
+function applySanLine(lineMoves: string[]): string[] {
+  const chess = new Chess();
+  const sanMoves: string[] = [];
+
+  for (const uci of lineMoves) {
+    const result = chess.move(uciToMove(uci));
+    if (!result) {
+      break;
+    }
+
+    sanMoves.push(result.san);
+  }
+
+  return sanMoves;
 }

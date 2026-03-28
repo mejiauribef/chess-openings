@@ -9,11 +9,11 @@ import type {
   TrainingSettings,
 } from '@/domain/training';
 import type { OpeningSourceMeta } from '@/lib/chess/openingDisplay';
+import { applyUciLine } from '@/lib/chess/openingGraph';
 import { buildTrainingSourceSummaries, selectTrainingLines } from '@/lib/training/cards';
 import { rescheduleReview } from '@/lib/training/scheduler';
-import { applyUciLine } from '@/lib/chess/openingGraph';
-import { PlayableBoard } from '@/components/PlayableBoard';
 import { EmptyStatePanel } from '@/components/EmptyStatePanel';
+import { PlayableBoard } from '@/components/PlayableBoard';
 import { SectionCard } from '@/components/SectionCard';
 
 interface TrainingViewProps {
@@ -50,20 +50,47 @@ const TRAINING_MODES: Array<{ id: TrainingMode; label: string; description: stri
   { id: 'drill', label: 'Drill', description: 'Error corta la linea.' },
 ];
 
+const MODE_UNLOCKS: Record<TrainingMode, { minimumDiscoveredLines: number; lockedLabel: string }> = {
+  learn: {
+    minimumDiscoveredLines: 0,
+    lockedLabel: '',
+  },
+  practice: {
+    minimumDiscoveredLines: 1,
+    lockedLabel: 'Descubre 1 linea para desbloquearlo.',
+  },
+  drill: {
+    minimumDiscoveredLines: 3,
+    lockedLabel: 'Descubre 3 lineas para desbloquearlo.',
+  },
+};
+
 function formatPercentage(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function getPreferredLineIndex(
-  deck: TrainingViewProps['allLines'],
-  focusedSourceId: string | undefined,
-): number {
-  if (!focusedSourceId) {
-    return 0;
+function getTheoryHighlights(note: TheoryNote | undefined): Array<{ label: string; value: string }> {
+  if (!note) {
+    return [];
   }
 
-  const matchingIndex = deck.findIndex((line) => line.lineSourceId === focusedSourceId);
-  return matchingIndex >= 0 ? matchingIndex : 0;
+  const highlights: Array<{ label: string; value: string }> = [];
+
+  if (note.summary.trim()) {
+    highlights.push({ label: 'Idea clave', value: note.summary });
+  }
+
+  note.plans.slice(0, 2).forEach((plan) => {
+    highlights.push({ label: 'Plan', value: plan });
+  });
+  note.traps.slice(0, 1).forEach((trap) => {
+    highlights.push({ label: 'Trampa', value: trap });
+  });
+  note.motifs.slice(0, 1).forEach((motif) => {
+    highlights.push({ label: 'Motivo', value: motif });
+  });
+
+  return highlights.slice(0, 4);
 }
 
 export function TrainingView({
@@ -85,7 +112,8 @@ export function TrainingView({
   sourceMetaById,
 }: TrainingViewProps) {
   const [mode, setMode] = useState<TrainingMode>('learn');
-  const [currentLineIndex, setCurrentLineIndex] = useState(() => getPreferredLineIndex(allLines, focusedSourceId));
+  const [activeSourceId, setActiveSourceId] = useState<string | undefined>(focusedSourceId);
+  const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [drillStreak, setDrillStreak] = useState(0);
   const [sessionStats, setSessionStats] = useState({ completed: 0, mistakes: 0 });
   const [lineKey, setLineKey] = useState(0);
@@ -106,9 +134,46 @@ export function TrainingView({
     () => buildTrainingSourceSummaries(deck, reviewStates, sourceMetaById),
     [deck, reviewStates, sourceMetaById],
   );
-  const visibleSourceSummaries = sourceSummaries.slice(0, 18);
-  const safeLineIndex = deck.length === 0 ? 0 : Math.min(currentLineIndex, deck.length - 1);
-  const currentLine = deck[safeLineIndex];
+  const activeSourceSummary = useMemo(() => {
+    if (sourceSummaries.length === 0) {
+      return undefined;
+    }
+
+    return (
+      sourceSummaries.find((entry) => entry.sourceId === activeSourceId) ??
+      sourceSummaries.find((entry) => (focusedSourceId ? entry.sourceIds.includes(focusedSourceId) : false)) ??
+      sourceSummaries[0]
+    );
+  }, [activeSourceId, focusedSourceId, sourceSummaries]);
+  const activeDeck = useMemo(() => {
+    if (!activeSourceSummary) {
+      return deck;
+    }
+
+    return deck.filter((line) => activeSourceSummary.sourceIds.includes(line.lineSourceId));
+  }, [activeSourceSummary, deck]);
+  const prioritizedSourceSummaries = useMemo(() => {
+    if (!activeSourceSummary) {
+      return sourceSummaries;
+    }
+
+    return [
+      activeSourceSummary,
+      ...sourceSummaries.filter((entry) => entry.sourceId !== activeSourceSummary.sourceId),
+    ];
+  }, [activeSourceSummary, sourceSummaries]);
+  const visibleSourceSummaries = prioritizedSourceSummaries.slice(0, 18);
+  const safeLineIndex = activeDeck.length === 0 ? 0 : Math.min(currentLineIndex, activeDeck.length - 1);
+  const currentLine = activeDeck[safeLineIndex];
+  const discoveredLines = sourceSummaries.reduce((total, entry) => total + entry.discoveredLineCount, 0);
+  const masteredLines = sourceSummaries.reduce((total, entry) => total + entry.masteredLineCount, 0);
+  const newLines = sourceSummaries.reduce((total, entry) => total + entry.newLineCount, 0);
+  const modeUnlockState = {
+    learn: true,
+    practice: discoveredLines >= MODE_UNLOCKS.practice.minimumDiscoveredLines,
+    drill: discoveredLines >= MODE_UNLOCKS.drill.minimumDiscoveredLines,
+  } satisfies Record<TrainingMode, boolean>;
+  const resolvedMode: TrainingMode = modeUnlockState[mode] ? mode : 'learn';
 
   if (!currentLine) {
     return (
@@ -142,12 +207,37 @@ export function TrainingView({
       ? theoryNotes.find((note) => note.nodeId === currentLine.terminalNodeId)
       : undefined) ??
     theoryNotes.find((note) => currentLine.tags.some((tag) => note.tags.includes(tag)));
+  const theoryHighlights = getTheoryHighlights(relatedTheory);
   const currentReview = reviewStates[currentLine.id];
   const currentSourceMeta = sourceMetaById?.[currentLine.lineSourceId];
   const currentSourceSummary = sourceSummaries.find((entry) =>
     entry.sourceIds.includes(currentLine.lineSourceId),
   );
+  const currentSourcePosition = activeSourceSummary
+    ? sourceSummaries.findIndex((entry) => entry.sourceId === activeSourceSummary.sourceId)
+    : -1;
   const linePreviewSan = applyUciLine(currentLine.movePath).sanMoves.join(' ');
+
+  function moveToSource(offset: 1 | -1) {
+    if (!activeSourceSummary || sourceSummaries.length === 0) {
+      return;
+    }
+
+    const currentIndex = sourceSummaries.findIndex((entry) => entry.sourceId === activeSourceSummary.sourceId);
+    const nextIndex =
+      currentIndex < 0
+        ? 0
+        : (currentIndex + offset + sourceSummaries.length) % sourceSummaries.length;
+    const nextSource = sourceSummaries[nextIndex];
+
+    if (!nextSource) {
+      return;
+    }
+
+    setActiveSourceId(nextSource.sourceId);
+    setCurrentLineIndex(0);
+    setLineKey((prev) => prev + 1);
+  }
 
   async function handleLineComplete(result: { mistakes: number; completed: boolean }) {
     const grade =
@@ -167,18 +257,25 @@ export function TrainingView({
       mistakes: prev.mistakes + result.mistakes,
     }));
 
-    if (mode === 'drill') {
+    if (resolvedMode === 'drill') {
       setDrillStreak(result.mistakes === 0 ? (prev) => prev + 1 : 0);
     }
 
     window.setTimeout(() => {
-      const nextIndex = (safeLineIndex + 1) % deck.length;
-      setCurrentLineIndex(nextIndex);
+      if (safeLineIndex + 1 < activeDeck.length) {
+        setCurrentLineIndex(safeLineIndex + 1);
+      } else {
+        moveToSource(1);
+      }
       setLineKey((prev) => prev + 1);
     }, 900);
   }
 
   function handleModeChange(nextMode: TrainingMode) {
+    if (!modeUnlockState[nextMode]) {
+      return;
+    }
+
     setMode(nextMode);
     setCurrentLineIndex(0);
     setDrillStreak(0);
@@ -186,18 +283,18 @@ export function TrainingView({
   }
 
   function handleSkip() {
-    const nextIndex = (safeLineIndex + 1) % deck.length;
-    setCurrentLineIndex(nextIndex);
-    setLineKey((prev) => prev + 1);
-  }
-
-  function handleFocusSource(sourceIds: string[]) {
-    const nextIndex = deck.findIndex((line) => sourceIds.includes(line.lineSourceId));
-    if (nextIndex < 0) {
+    if (safeLineIndex + 1 < activeDeck.length) {
+      setCurrentLineIndex(safeLineIndex + 1);
+      setLineKey((prev) => prev + 1);
       return;
     }
 
-    setCurrentLineIndex(nextIndex);
+    moveToSource(1);
+  }
+
+  function handleFocusSource(sourceId: string) {
+    setActiveSourceId(sourceId);
+    setCurrentLineIndex(0);
     setLineKey((prev) => prev + 1);
   }
 
@@ -214,6 +311,12 @@ export function TrainingView({
                 {currentSourceMeta?.displaySubtitle ?? 'Subvariacion activa'}
               </p>
               <code>{linePreviewSan}</code>
+              {activeSourceSummary ? (
+                <small>
+                  Subvariante {currentSourcePosition + 1} de {sourceSummaries.length} | linea {safeLineIndex + 1} de{' '}
+                  {activeDeck.length}
+                </small>
+              ) : null}
             </div>
 
             <div className="training-stage-actions">
@@ -222,18 +325,31 @@ export function TrainingView({
                   <button
                     key={entry.id}
                     type="button"
-                    className={`mode-chip ${mode === entry.id ? 'is-active' : ''}`}
+                    className={`mode-chip ${resolvedMode === entry.id ? 'is-active' : ''} ${
+                      !modeUnlockState[entry.id] ? 'is-locked' : ''
+                    }`}
                     onClick={() => handleModeChange(entry.id)}
+                    disabled={!modeUnlockState[entry.id]}
                   >
                     <strong>{entry.label}</strong>
-                    <span>{entry.description}</span>
+                    <span>
+                      {modeUnlockState[entry.id]
+                        ? entry.description
+                        : MODE_UNLOCKS[entry.id].lockedLabel}
+                    </span>
                   </button>
                 ))}
               </div>
 
               <div className="button-row button-row--compact">
+                <button type="button" className="secondary-button" onClick={() => moveToSource(-1)}>
+                  Subvariante anterior
+                </button>
                 <button type="button" className="secondary-button" onClick={handleSkip}>
                   Saltar linea
+                </button>
+                <button type="button" className="secondary-button" onClick={() => moveToSource(1)}>
+                  Siguiente subvariante
                 </button>
                 {onClearScope ? (
                   <button type="button" className="secondary-button" onClick={onClearScope}>
@@ -250,10 +366,10 @@ export function TrainingView({
                 key={`${currentLine.id}-${lineKey}`}
                 lineMoves={currentLine.movePath}
                 playerColor={currentLine.color}
-                mode={mode}
+                mode={resolvedMode}
                 opponentDelay={settings.opponentDelay}
                 autoRetryDelay={settings.autoRetryDelay}
-                hintsEnabled={mode === 'learn' && settings.hintsEnabled}
+                hintsEnabled={resolvedMode === 'learn' && settings.hintsEnabled}
                 theoryNote={relatedTheory}
                 onLineComplete={(result) => void handleLineComplete(result)}
               />
@@ -265,12 +381,16 @@ export function TrainingView({
                 <div className="detail-meta">
                   <p><strong>Curso:</strong> {scopeLabel ?? 'Sin foco'}</p>
                   <p><strong>Subvariantes activas:</strong> {sourceSummaries.length}</p>
-                  <p><strong>Lineas del mazo:</strong> {deck.length}</p>
+                  <p><strong>Subvariante actual:</strong> {activeSourceSummary?.openingName ?? 'Sin foco'}</p>
+                  <p><strong>Lineas del curso:</strong> {deck.length}</p>
+                  <p><strong>Lineas en foco:</strong> {activeDeck.length}</p>
+                  <p><strong>Nuevas:</strong> {newLines} | <strong>Descubiertas:</strong> {discoveredLines}</p>
+                  <p><strong>Dominadas:</strong> {masteredLines}</p>
                   <p><strong>Profundidad:</strong> {settings.minimumDepth}-{settings.maximumDepth}</p>
                   <p><strong>Retencion:</strong> {formatPercentage(metrics.retentionRate)}</p>
                   <p><strong>Sesion:</strong> {sessionStats.completed} completadas, {sessionStats.mistakes} errores</p>
                   <p><strong>Turno:</strong> {currentLine.color === 'white' ? 'Practicas blancas' : 'Practicas negras'}</p>
-                  {mode === 'drill' ? (
+                  {resolvedMode === 'drill' ? (
                     <p className="drill-streak"><strong>Racha:</strong> <span>{drillStreak}</span></p>
                   ) : null}
                   {currentReview ? (
@@ -280,17 +400,17 @@ export function TrainingView({
               </article>
 
               <article className="info-panel">
-                <h3>Cola de subvariantes</h3>
+                <h3>Plan del curso</h3>
                 <div className="training-source-list">
                   {visibleSourceSummaries.map((entry) => {
-                    const isActive = entry.sourceIds.includes(currentLine.lineSourceId);
+                    const isActive = entry.sourceId === activeSourceSummary?.sourceId;
 
                     return (
                       <button
                         key={entry.sourceId}
                         type="button"
                         className={`training-source-card ${isActive ? 'is-active' : ''}`}
-                        onClick={() => handleFocusSource(entry.sourceIds)}
+                        onClick={() => handleFocusSource(entry.sourceId)}
                       >
                         <strong>{entry.openingName}</strong>
                         <span>
@@ -302,8 +422,8 @@ export function TrainingView({
                           {entry.namedLineCount && entry.namedLineCount > 1
                             ? `${entry.namedLineCount} lineas equivalentes | `
                             : ''}
-                          {entry.lineCount} lineas del mazo | {entry.dueCount} vencidas | profundidad{' '}
-                          {entry.minDepth}-{entry.maxDepth}
+                          {entry.lineCount} lineas | {entry.dueCount} vencidas | {entry.discoveredLineCount} descubiertas |
+                          profundidad {entry.minDepth}-{entry.maxDepth}
                         </small>
                       </button>
                     );
@@ -311,26 +431,41 @@ export function TrainingView({
                 </div>
                 {sourceSummaries.length > visibleSourceSummaries.length ? (
                   <p className="empty-state">
-                    Mostrando {visibleSourceSummaries.length} de {sourceSummaries.length} subvariantes en cola para
-                    mantener el tablero rapido.
+                    Mostrando {visibleSourceSummaries.length} de {sourceSummaries.length} subvariantes para mantener el
+                    tablero rapido.
                   </p>
                 ) : null}
               </article>
 
               <article className="info-panel">
-                <h3>Metricas utiles</h3>
+                <h3>Guia de estudio</h3>
                 <div className="detail-meta">
-                  <p><strong>Lineas dominadas:</strong> {metrics.masteredLines}</p>
-                  <p><strong>Ramas pendientes:</strong> {metrics.pendingBranches}</p>
+                  <p><strong>Objetivo:</strong> domina una subvariante antes de saltar a la siguiente.</p>
+                  <p><strong>Modes:</strong> Practice se desbloquea con 1 linea descubierta, Drill con 3.</p>
                   <p><strong>Estabilidad media:</strong> {metrics.averageStability.toFixed(1)}</p>
                   <p><strong>Notas teoricas:</strong> {metrics.theoryCoverage.notedNodes}</p>
                 </div>
                 {currentSourceSummary ? (
                   <p className="empty-state">
-                    Esta subvariacion aporta {currentSourceSummary.lineCount} lineas al curso y su dificultad media es{' '}
-                    {currentSourceSummary.averageDifficulty.toFixed(1)}.
+                    Esta subvariante aporta {currentSourceSummary.lineCount} lineas al curso, {currentSourceSummary.newLineCount}{' '}
+                    nuevas y una dificultad media de {currentSourceSummary.averageDifficulty.toFixed(1)}.
                   </p>
                 ) : null}
+                {theoryHighlights.length > 0 ? (
+                  <div className="stack-list">
+                    {theoryHighlights.map((item) => (
+                      <div key={`${item.label}-${item.value}`} className="list-row">
+                        <strong>{item.label}</strong>
+                        <span>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">
+                    Esta subvariante aun no tiene teoria curada. El entrenamiento sigue siendo exacto por SAN/UCI y puedes
+                    anadir notas propias desde el panel de teoria.
+                  </p>
+                )}
               </article>
             </aside>
           </div>

@@ -16,7 +16,7 @@ import { buildCourseSummaries } from '@/lib/chess/courseOverview';
 import { buildFamilyIndex, normalizeFamily } from '@/lib/chess/familyIndex';
 import { applyUciLine, getNodeLabels, getOpeningNameForNode } from '@/lib/chess/openingGraph';
 import { searchOpenings } from '@/lib/search/openingSearch';
-import { createTrainingLines } from '@/lib/training/cards';
+import { createCourseTrainingLines } from '@/lib/training/cards';
 import { buildTrainingMetrics } from '@/lib/training/metrics';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -143,10 +143,14 @@ export function App() {
     () => new Set(activeCourseOpenings.map((opening) => opening.id)),
     [activeCourseOpenings],
   );
-  const allLines = useMemo(() => createTrainingLines(graph, repertoireLines), [graph, repertoireLines]);
   const scopedLines = useMemo(
-    () => allLines.filter((line) => courseOpeningIds.has(line.lineSourceId)),
-    [allLines, courseOpeningIds],
+    () =>
+      createCourseTrainingLines({
+        graph,
+        courseOpenings: activeCourseOpenings,
+        repertoireLines,
+      }),
+    [activeCourseOpenings, graph, repertoireLines],
   );
   const scopedMetrics = useMemo(
     () =>

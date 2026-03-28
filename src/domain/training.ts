@@ -48,6 +48,9 @@ export interface TrainingSourceSummary {
   namedLineCount?: number;
   lineCount: number;
   dueCount: number;
+  discoveredLineCount: number;
+  masteredLineCount: number;
+  newLineCount: number;
   minDepth: number;
   maxDepth: number;
   averageDifficulty: number;
