@@ -40,7 +40,7 @@ interface TrainingViewProps {
   onOpenCatalog?: () => void;
   onClearScope?: () => void;
   focusedSourceId?: string;
-  sourceMetaById?: Record<string, { eco?: string; subvariation?: string }>;
+  sourceMetaById?: Record<string, { eco?: string; subvariation?: string; movePreviewSan?: string }>;
 }
 
 const TRAINING_MODES: Array<{ id: TrainingMode; label: string; description: string }> = [
@@ -105,6 +105,7 @@ export function TrainingView({
     () => buildTrainingSourceSummaries(deck, reviewStates),
     [deck, reviewStates],
   );
+  const visibleSourceSummaries = sourceSummaries.slice(0, 18);
   const safeLineIndex = deck.length === 0 ? 0 : Math.min(currentLineIndex, deck.length - 1);
   const currentLine = deck[safeLineIndex];
 
@@ -201,37 +202,43 @@ export function TrainingView({
     <div className="training-session training-session--focus">
       <div className="training-session__board">
         <SectionCard title="Practica" eyebrow={scopeLabel ?? 'Curso activo'}>
-          <div className="training-mode-grid">
-            {TRAINING_MODES.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                className={`mode-chip ${mode === entry.id ? 'is-active' : ''}`}
-                onClick={() => handleModeChange(entry.id)}
-              >
-                <strong>{entry.label}</strong>
-                <span>{entry.description}</span>
-              </button>
-            ))}
-          </div>
+          <div className="training-stage-header">
+            <div className="training-stage-banner">
+              <span className="training-stage-banner__eyebrow">Ahora juegas</span>
+              <h3>{currentLine.openingName || 'Linea sin nombre'}</h3>
+              <p>
+                {currentSourceMeta?.eco ? `${currentSourceMeta.eco} | ` : ''}
+                {currentSourceMeta?.subvariation ?? 'Subvariacion activa'}
+              </p>
+              <code>{linePreviewSan}</code>
+            </div>
 
-          <div className="training-summary-strip">
-            <span className="training-pill">
-              <strong>Curso</strong>
-              <span>{scopeLabel ?? 'Sin foco'}</span>
-            </span>
-            <span className="training-pill">
-              <strong>Subvariacion</strong>
-              <span>{currentLine.openingName || 'Linea sin nombre'}</span>
-            </span>
-            <span className="training-pill">
-              <strong>Progreso</strong>
-              <span>{safeLineIndex + 1}/{deck.length}</span>
-            </span>
-            <span className="training-pill">
-              <strong>Review</strong>
-              <span>{currentReview ? `racha ${currentReview.streak}` : 'nueva'}</span>
-            </span>
+            <div className="training-stage-actions">
+              <div className="training-mode-grid training-mode-grid--compact">
+                {TRAINING_MODES.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    className={`mode-chip ${mode === entry.id ? 'is-active' : ''}`}
+                    onClick={() => handleModeChange(entry.id)}
+                  >
+                    <strong>{entry.label}</strong>
+                    <span>{entry.description}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="button-row button-row--compact">
+                <button type="button" className="secondary-button" onClick={handleSkip}>
+                  Saltar linea
+                </button>
+                {onClearScope ? (
+                  <button type="button" className="secondary-button" onClick={onClearScope}>
+                    Cambiar apertura
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="training-focus-layout">
@@ -247,38 +254,19 @@ export function TrainingView({
                 theoryNote={relatedTheory}
                 onLineComplete={(result) => void handleLineComplete(result)}
               />
-
-              <article className="training-line-card">
-                <div className="training-line-card__header">
-                  <div>
-                    <h3>{currentLine.openingName || 'Linea sin nombre'}</h3>
-                    <p>
-                      {currentSourceMeta?.eco ? `${currentSourceMeta.eco} | ` : ''}
-                      {currentSourceMeta?.subvariation ?? 'Subvariacion activa'}
-                    </p>
-                  </div>
-                  <span className="chip">{currentLine.color === 'white' ? 'Entrenas blancas' : 'Entrenas negras'}</span>
-                </div>
-                <p className="move-history-compact">{linePreviewSan}</p>
-                {relatedTheory?.summary ? <p className="training-line-card__theory">{relatedTheory.summary}</p> : null}
-              </article>
-
-              <div className="button-row">
-                <button type="button" className="secondary-button" onClick={handleSkip}>
-                  Saltar linea
-                </button>
-              </div>
             </div>
 
             <aside className="training-focus-layout__sidebar">
               <article className="info-panel">
                 <h3>Estado del curso</h3>
                 <div className="detail-meta">
+                  <p><strong>Curso:</strong> {scopeLabel ?? 'Sin foco'}</p>
                   <p><strong>Subvariantes activas:</strong> {sourceSummaries.length}</p>
                   <p><strong>Lineas del mazo:</strong> {deck.length}</p>
                   <p><strong>Profundidad:</strong> {settings.minimumDepth}-{settings.maximumDepth}</p>
                   <p><strong>Retencion:</strong> {formatPercentage(metrics.retentionRate)}</p>
                   <p><strong>Sesion:</strong> {sessionStats.completed} completadas, {sessionStats.mistakes} errores</p>
+                  <p><strong>Turno:</strong> {currentLine.color === 'white' ? 'Practicas blancas' : 'Practicas negras'}</p>
                   {mode === 'drill' ? (
                     <p className="drill-streak"><strong>Racha:</strong> <span>{drillStreak}</span></p>
                   ) : null}
@@ -291,7 +279,7 @@ export function TrainingView({
               <article className="info-panel">
                 <h3>Cola de subvariantes</h3>
                 <div className="training-source-list">
-                  {sourceSummaries.map((entry) => {
+                  {visibleSourceSummaries.map((entry) => {
                     const meta = sourceMetaById?.[entry.sourceId];
                     const isActive = entry.sourceId === currentLine.lineSourceId;
 
@@ -304,13 +292,18 @@ export function TrainingView({
                       >
                         <strong>{entry.openingName}</strong>
                         <span>{meta?.eco ? `${meta.eco} | ` : ''}{meta?.subvariation ?? 'Ruta activa'}</span>
-                        <small>
-                          {entry.lineCount} lineas | {entry.dueCount} vencidas | profundidad {entry.minDepth}-{entry.maxDepth}
-                        </small>
+                        <small>{meta?.movePreviewSan ?? 'Sin preview SAN'}</small>
+                        <small>{entry.lineCount} lineas | {entry.dueCount} vencidas | profundidad {entry.minDepth}-{entry.maxDepth}</small>
                       </button>
                     );
                   })}
                 </div>
+                {sourceSummaries.length > visibleSourceSummaries.length ? (
+                  <p className="empty-state">
+                    Mostrando {visibleSourceSummaries.length} de {sourceSummaries.length} subvariantes en cola para
+                    mantener el tablero rapido.
+                  </p>
+                ) : null}
               </article>
 
               <article className="info-panel">

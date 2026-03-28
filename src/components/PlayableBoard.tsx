@@ -51,7 +51,7 @@ export function PlayableBoard({
 
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const width = Math.min(480, Math.floor(entry.contentRect.width));
+        const width = Math.min(760, Math.floor(entry.contentRect.width));
         setBoardWidth(width);
       }
     });

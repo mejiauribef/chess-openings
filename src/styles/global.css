@@ -63,6 +63,41 @@ code {
   align-items: start;
 }
 
+.focus-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.25);
+}
+
+.focus-toolbar h1 {
+  font-size: clamp(1.6rem, 2.2vw, 2.35rem);
+  margin: 0.2rem 0 0;
+}
+
+.focus-toolbar__summary {
+  min-width: 0;
+}
+
+.focus-toolbar__meta {
+  margin: 0;
+  color: #cbd5e1;
+}
+
+.focus-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  align-items: end;
+}
+
 .hero h1 {
   font-family: "Alegreya", "Palatino Linotype", serif;
   font-size: clamp(2rem, 4vw, 3.75rem);
@@ -234,6 +269,24 @@ code {
 .field__hint {
   color: #94a3b8;
   font-size: 0.85rem;
+}
+
+.field--compact,
+.focus-toolbar__actions .toggle {
+  margin-bottom: 0;
+  min-width: 96px;
+}
+
+.field--compact span {
+  font-size: 0.78rem;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.field--compact input,
+.field--compact select {
+  padding: 0.7rem 0.8rem;
 }
 
 .opening-list {
@@ -424,6 +477,10 @@ code {
   margin: 1rem 0;
 }
 
+.button-row--compact {
+  margin: 0;
+}
+
 .button-row button,
 .section-card button:not(.tab-bar__button):not(.secondary-button) {
   padding: 0.7rem 1rem;
@@ -574,8 +631,8 @@ code {
 .playable-board {
   display: grid;
   gap: 0.75rem;
-  margin-top: 1rem;
-  max-width: 480px;
+  width: 100%;
+  max-width: 760px;
 }
 
 .playable-board__feedback {
@@ -635,7 +692,7 @@ code {
 
 .training-focus-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
   gap: 1rem;
   align-items: start;
 }
@@ -644,6 +701,56 @@ code {
 .training-focus-layout__sidebar {
   display: grid;
   gap: 1rem;
+  align-content: start;
+}
+
+.training-focus-layout__board {
+  min-width: 0;
+}
+
+.training-stage-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: start;
+}
+
+.training-stage-banner {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(14, 165, 233, 0.12));
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.training-stage-banner__eyebrow {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #fde68a;
+}
+
+.training-stage-banner h3,
+.training-stage-banner p,
+.training-stage-banner code {
+  margin: 0;
+}
+
+.training-stage-banner p {
+  color: #e2e8f0;
+}
+
+.training-stage-banner code {
+  color: #f8fafc;
+  font-size: 0.92rem;
+  white-space: normal;
+}
+
+.training-stage-actions {
+  display: grid;
+  gap: 0.75rem;
   align-content: start;
 }
 
@@ -677,7 +784,7 @@ code {
 .training-source-list {
   display: grid;
   gap: 0.6rem;
-  max-height: 520px;
+  max-height: 420px;
   overflow-y: auto;
 }
 
@@ -707,6 +814,10 @@ code {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.training-mode-grid--compact {
+  margin-bottom: 0;
 }
 
 .training-pill {
@@ -834,9 +945,16 @@ code {
 
 .study-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(320px, 380px);
   gap: 1rem;
   align-items: start;
+}
+
+.study-layout--browse {
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+}
+
+.study-layout--focus {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
 }
 
 .study-sidebar,
@@ -849,6 +967,11 @@ code {
 
 .study-main {
   min-width: 0;
+}
+
+.study-rail--focus {
+  position: sticky;
+  top: 1rem;
 }
 
 .course-card-grid,
@@ -885,6 +1008,10 @@ code {
 .variation-list {
   max-height: 620px;
   overflow-y: auto;
+}
+
+.variation-list--focus {
+  max-height: 58vh;
 }
 
 .opening-list--compact {
@@ -940,6 +1067,8 @@ code {
   }
 
   .training-focus-layout,
+  .training-stage-header,
+  .focus-toolbar,
   .hero--study,
   .study-layout {
     grid-template-columns: 1fr;
@@ -947,6 +1076,14 @@ code {
 
   .hero-metrics {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .focus-toolbar__actions {
+    justify-content: stretch;
+  }
+
+  .study-rail--focus {
+    position: static;
   }
 
   .app-shell {
