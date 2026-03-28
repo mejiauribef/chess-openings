@@ -41,6 +41,8 @@ describe('courseOverview', () => {
       studyReadyCount: 2,
       minDepth: 5,
       maxDepth: 6,
+      effectiveMinDepth: 5,
+      effectiveMaxDepth: 6,
     });
   });
 });

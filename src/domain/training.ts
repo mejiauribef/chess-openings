@@ -40,7 +40,12 @@ export type TrainingMode = 'learn' | 'practice' | 'drill';
 
 export interface TrainingSourceSummary {
   sourceId: string;
+  sourceIds: string[];
   openingName: string;
+  displaySubtitle?: string;
+  ecoLabel?: string;
+  movePreviewSan?: string;
+  namedLineCount?: number;
   lineCount: number;
   dueCount: number;
   minDepth: number;

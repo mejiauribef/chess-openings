@@ -10,6 +10,9 @@ export interface CourseSummary {
   minDepth: number;
   medianDepth: number;
   maxDepth: number;
+  effectiveMinDepth: number;
+  effectiveMedianDepth: number;
+  effectiveMaxDepth: number;
   bucketCount: number;
   representativeOpeningId?: string;
   representativeOpeningName?: string;
@@ -75,7 +78,9 @@ export function buildCourseSummaries(
   return familyIndex.groups.map((group) => {
     const entries = familyIndex.openingsByFamily.get(group.key) ?? [];
     const depths = sortDepths(entries);
-    const studyReadyCount = entries.filter((entry) => entry.depth >= minimumDepth).length;
+    const studyReadyEntries = entries.filter((entry) => entry.depth >= minimumDepth);
+    const studyReadyDepths = sortDepths(studyReadyEntries);
+    const studyReadyCount = studyReadyEntries.length;
     const representative = pickRepresentativeOpening(entries, minimumDepth);
     const bucketCount = new Set(entries.map((entry) => entry.bucketKey)).size;
 
@@ -88,6 +93,9 @@ export function buildCourseSummaries(
       minDepth: depths[0] ?? 0,
       medianDepth: getMedianDepth(depths),
       maxDepth: depths[depths.length - 1] ?? 0,
+      effectiveMinDepth: studyReadyDepths[0] ?? 0,
+      effectiveMedianDepth: getMedianDepth(studyReadyDepths),
+      effectiveMaxDepth: studyReadyDepths[studyReadyDepths.length - 1] ?? 0,
       bucketCount,
       representativeOpeningId: representative?.id,
       representativeOpeningName: representative?.canonicalName,

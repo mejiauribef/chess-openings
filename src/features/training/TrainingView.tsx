@@ -8,6 +8,7 @@ import type {
   TrainingMode,
   TrainingSettings,
 } from '@/domain/training';
+import type { OpeningSourceMeta } from '@/lib/chess/openingDisplay';
 import { buildTrainingSourceSummaries, selectTrainingLines } from '@/lib/training/cards';
 import { rescheduleReview } from '@/lib/training/scheduler';
 import { applyUciLine } from '@/lib/chess/openingGraph';
@@ -40,7 +41,7 @@ interface TrainingViewProps {
   onOpenCatalog?: () => void;
   onClearScope?: () => void;
   focusedSourceId?: string;
-  sourceMetaById?: Record<string, { eco?: string; subvariation?: string; movePreviewSan?: string }>;
+  sourceMetaById?: Record<string, OpeningSourceMeta>;
 }
 
 const TRAINING_MODES: Array<{ id: TrainingMode; label: string; description: string }> = [
@@ -102,8 +103,8 @@ export function TrainingView({
   );
 
   const sourceSummaries = useMemo(
-    () => buildTrainingSourceSummaries(deck, reviewStates),
-    [deck, reviewStates],
+    () => buildTrainingSourceSummaries(deck, reviewStates, sourceMetaById),
+    [deck, reviewStates, sourceMetaById],
   );
   const visibleSourceSummaries = sourceSummaries.slice(0, 18);
   const safeLineIndex = deck.length === 0 ? 0 : Math.min(currentLineIndex, deck.length - 1);
@@ -143,7 +144,9 @@ export function TrainingView({
     theoryNotes.find((note) => currentLine.tags.some((tag) => note.tags.includes(tag)));
   const currentReview = reviewStates[currentLine.id];
   const currentSourceMeta = sourceMetaById?.[currentLine.lineSourceId];
-  const currentSourceSummary = sourceSummaries.find((entry) => entry.sourceId === currentLine.lineSourceId);
+  const currentSourceSummary = sourceSummaries.find((entry) =>
+    entry.sourceIds.includes(currentLine.lineSourceId),
+  );
   const linePreviewSan = applyUciLine(currentLine.movePath).sanMoves.join(' ');
 
   async function handleLineComplete(result: { mistakes: number; completed: boolean }) {
@@ -188,8 +191,8 @@ export function TrainingView({
     setLineKey((prev) => prev + 1);
   }
 
-  function handleFocusSource(sourceId: string) {
-    const nextIndex = deck.findIndex((line) => line.lineSourceId === sourceId);
+  function handleFocusSource(sourceIds: string[]) {
+    const nextIndex = deck.findIndex((line) => sourceIds.includes(line.lineSourceId));
     if (nextIndex < 0) {
       return;
     }
@@ -205,10 +208,10 @@ export function TrainingView({
           <div className="training-stage-header">
             <div className="training-stage-banner">
               <span className="training-stage-banner__eyebrow">Ahora juegas</span>
-              <h3>{currentLine.openingName || 'Linea sin nombre'}</h3>
+              <h3>{currentSourceMeta?.displayTitle ?? currentLine.openingName ?? 'Linea sin nombre'}</h3>
               <p>
-                {currentSourceMeta?.eco ? `${currentSourceMeta.eco} | ` : ''}
-                {currentSourceMeta?.subvariation ?? 'Subvariacion activa'}
+                {currentSourceMeta?.ecoLabel ? `${currentSourceMeta.ecoLabel} | ` : ''}
+                {currentSourceMeta?.displaySubtitle ?? 'Subvariacion activa'}
               </p>
               <code>{linePreviewSan}</code>
             </div>
@@ -280,20 +283,28 @@ export function TrainingView({
                 <h3>Cola de subvariantes</h3>
                 <div className="training-source-list">
                   {visibleSourceSummaries.map((entry) => {
-                    const meta = sourceMetaById?.[entry.sourceId];
-                    const isActive = entry.sourceId === currentLine.lineSourceId;
+                    const isActive = entry.sourceIds.includes(currentLine.lineSourceId);
 
                     return (
                       <button
                         key={entry.sourceId}
                         type="button"
                         className={`training-source-card ${isActive ? 'is-active' : ''}`}
-                        onClick={() => handleFocusSource(entry.sourceId)}
+                        onClick={() => handleFocusSource(entry.sourceIds)}
                       >
                         <strong>{entry.openingName}</strong>
-                        <span>{meta?.eco ? `${meta.eco} | ` : ''}{meta?.subvariation ?? 'Ruta activa'}</span>
-                        <small>{meta?.movePreviewSan ?? 'Sin preview SAN'}</small>
-                        <small>{entry.lineCount} lineas | {entry.dueCount} vencidas | profundidad {entry.minDepth}-{entry.maxDepth}</small>
+                        <span>
+                          {entry.ecoLabel ? `${entry.ecoLabel} | ` : ''}
+                          {entry.displaySubtitle ?? 'Ruta activa'}
+                        </span>
+                        <small>{entry.movePreviewSan ?? 'Sin preview SAN'}</small>
+                        <small>
+                          {entry.namedLineCount && entry.namedLineCount > 1
+                            ? `${entry.namedLineCount} lineas equivalentes | `
+                            : ''}
+                          {entry.lineCount} lineas del mazo | {entry.dueCount} vencidas | profundidad{' '}
+                          {entry.minDepth}-{entry.maxDepth}
+                        </small>
                       </button>
                     );
                   })}

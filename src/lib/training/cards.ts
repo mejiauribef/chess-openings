@@ -3,6 +3,7 @@ import type { RepertoireLine } from '@/domain/repertoire';
 import type { OpeningGraph } from '@/domain/position';
 import type { ReviewState, TrainingLine, TrainingSettings, TrainingSourceSummary } from '@/domain/training';
 import { tryResolveNodeIdViaGraph } from '@/lib/chess/openingGraph';
+import type { OpeningSourceMeta } from '@/lib/chess/openingDisplay';
 
 export function normalizeTrainingAnswer(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ').trim();
@@ -189,13 +190,19 @@ export function selectTrainingLines(options: {
 export function buildTrainingSourceSummaries(
   lines: TrainingLine[],
   reviewStates: Record<string, ReviewState>,
+  sourceMetaById: Record<string, OpeningSourceMeta> = {},
   now: Date = new Date(),
 ): TrainingSourceSummary[] {
   const grouped = new Map<
     string,
     {
       sourceId: string;
+      sourceIds: Set<string>;
       openingName: string;
+      displaySubtitle?: string;
+      ecoLabel?: string;
+      movePreviewSan?: string;
+      namedLineCount?: number;
       lineCount: number;
       dueCount: number;
       minDepth: number;
@@ -208,9 +215,16 @@ export function buildTrainingSourceSummaries(
     const depth = getDepthFromTags(line.tags);
     const reviewState = reviewStates[line.id];
     const isDue = !reviewState || new Date(reviewState.dueAt).getTime() <= now.getTime();
-    const entry = grouped.get(line.lineSourceId) ?? {
+    const meta = sourceMetaById[line.lineSourceId];
+    const groupingKey = meta?.displayKey ?? line.lineSourceId;
+    const entry = grouped.get(groupingKey) ?? {
       sourceId: line.lineSourceId,
-      openingName: line.openingName || 'Linea sin nombre',
+      sourceIds: new Set<string>(),
+      openingName: meta?.displayTitle ?? line.openingName ?? 'Linea sin nombre',
+      displaySubtitle: meta?.displaySubtitle,
+      ecoLabel: meta?.ecoLabel,
+      movePreviewSan: meta?.movePreviewSan,
+      namedLineCount: meta?.namedLineCount,
       lineCount: 0,
       dueCount: 0,
       minDepth: Number.POSITIVE_INFINITY,
@@ -218,6 +232,7 @@ export function buildTrainingSourceSummaries(
       difficultyTotal: 0,
     };
 
+    entry.sourceIds.add(line.lineSourceId);
     entry.lineCount += 1;
     entry.difficultyTotal += line.difficulty;
     entry.minDepth = Math.min(entry.minDepth, depth || 0);
@@ -227,13 +242,18 @@ export function buildTrainingSourceSummaries(
       entry.dueCount += 1;
     }
 
-    grouped.set(line.lineSourceId, entry);
+    grouped.set(groupingKey, entry);
   });
 
   return [...grouped.values()]
     .map((entry) => ({
       sourceId: entry.sourceId,
+      sourceIds: [...entry.sourceIds],
       openingName: entry.openingName,
+      displaySubtitle: entry.displaySubtitle,
+      ecoLabel: entry.ecoLabel,
+      movePreviewSan: entry.movePreviewSan,
+      namedLineCount: entry.namedLineCount,
       lineCount: entry.lineCount,
       dueCount: entry.dueCount,
       minDepth: Number.isFinite(entry.minDepth) ? entry.minDepth : 0,

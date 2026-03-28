@@ -1,4 +1,5 @@
 import type { OpeningCatalogEntry } from '@/domain/opening';
+import { normalizeOpeningText } from './openingDisplay';
 
 export interface FamilyGroup {
   key: string;
@@ -33,7 +34,7 @@ export function buildFamilyIndex(openings: OpeningCatalogEntry[]): FamilyIndex {
     if (!list) {
       list = [];
       byKey.set(key, list);
-      displayNames.set(key, opening.family);
+      displayNames.set(key, normalizeOpeningText(opening.family));
     }
     list.push(opening);
   }

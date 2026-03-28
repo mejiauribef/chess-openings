@@ -5,6 +5,13 @@ import { RepertoireView } from '@/features/repertoire/RepertoireView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { TheoryView } from '@/features/theory/TheoryView';
 import { TrainingView } from '@/features/training/TrainingView';
+import {
+  buildCourseVariationDisplays,
+  buildOpeningSourceMetaMap,
+  getOpeningDisplayFields,
+  matchesCourseVariationQuery,
+  normalizeOpeningText,
+} from '@/lib/chess/openingDisplay';
 import { buildCourseSummaries } from '@/lib/chess/courseOverview';
 import { buildFamilyIndex, normalizeFamily } from '@/lib/chess/familyIndex';
 import { applyUciLine, getNodeLabels, getOpeningNameForNode } from '@/lib/chess/openingGraph';
@@ -31,14 +38,14 @@ function getDepthRange(depths: number[]): { min: number; max: number } {
 
 function formatCourseCount(studyReadyCount: number, totalCount: number): string {
   if (totalCount <= 0) {
-    return 'Sin subvariantes disponibles';
+    return 'Sin lineas jugables';
   }
 
   if (studyReadyCount === totalCount) {
-    return `${studyReadyCount} subvariantes jugables`;
+    return `${studyReadyCount} lineas jugables`;
   }
 
-  return `${studyReadyCount} jugables de ${totalCount} nombradas`;
+  return `${studyReadyCount} lineas jugables de ${totalCount} nombradas`;
 }
 
 export function App() {
@@ -162,19 +169,17 @@ export function App() {
   const selectedOpeningDetail = selectedOpeningSummary
     ? openingDetailsById[selectedOpeningSummary.id]
     : undefined;
-  const sourceMetaById = useMemo(
-    () =>
-      Object.fromEntries(
-        effectiveCourseOpenings.map((opening) => [
-          opening.id,
-          {
-            eco: opening.eco,
-            subvariation: opening.subvariation,
-            movePreviewSan: opening.movePreviewSan,
-          },
-        ]),
-      ),
+  const courseVariationDisplays = useMemo(
+    () => buildCourseVariationDisplays(effectiveCourseOpenings),
     [effectiveCourseOpenings],
+  );
+  const selectedVariationDisplay =
+    courseVariationDisplays.find((variation) =>
+      selectedOpeningSummary ? variation.openingIds.includes(selectedOpeningSummary.id) : false,
+    ) ?? courseVariationDisplays[0];
+  const sourceMetaById = useMemo(
+    () => buildOpeningSourceMetaMap(courseVariationDisplays),
+    [courseVariationDisplays],
   );
   const searchResults = useMemo(
     () => searchOpenings(openings, deferredQuery).slice(0, SEARCH_RESULT_LIMIT),
@@ -198,23 +203,17 @@ export function App() {
       .slice(0, COURSE_CARD_LIMIT);
   }, [courseSummaries, deferredQuery, searchResults]);
   const visibleVariations = useMemo(() => {
-    const source = effectiveCourseOpenings;
+    const source = courseVariationDisplays;
+    const limit = isFocusMode ? FOCUS_VARIATION_LIMIT : BROWSE_VARIATION_LIMIT;
 
     if (!deferredVariationQuery.trim()) {
-      return source.slice(0, isFocusMode ? FOCUS_VARIATION_LIMIT : BROWSE_VARIATION_LIMIT);
+      return source.slice(0, limit);
     }
 
-    const normalizedQuery = deferredVariationQuery.trim().toLowerCase();
     return source
-      .filter(
-        (opening) =>
-          opening.canonicalName.toLowerCase().includes(normalizedQuery) ||
-          opening.eco.toLowerCase().includes(normalizedQuery) ||
-          opening.subvariation.toLowerCase().includes(normalizedQuery) ||
-          opening.aliases.some((alias) => alias.toLowerCase().includes(normalizedQuery)),
-      )
-      .slice(0, FOCUS_VARIATION_LIMIT);
-  }, [deferredVariationQuery, effectiveCourseOpenings, isFocusMode]);
+      .filter((variation) => matchesCourseVariationQuery(variation, deferredVariationQuery))
+      .slice(0, limit);
+  }, [courseVariationDisplays, deferredVariationQuery, isFocusMode]);
   const selectedNode = selectedNodeId ? graph.nodes[selectedNodeId] : undefined;
   const labels = useMemo(
     () =>
@@ -251,6 +250,9 @@ export function App() {
     () => (selectedOpeningDetail ? applyUciLine(selectedOpeningDetail.uciMoves).sanMoves.join(' ') : undefined),
     [selectedOpeningDetail],
   );
+  const selectedOpeningDisplay = selectedOpeningSummary
+    ? getOpeningDisplayFields(selectedOpeningSummary)
+    : undefined;
   const isTrainingScopeLoading = useMemo(() => {
     if (activeCourseOpenings.length === 0) {
       return false;
@@ -350,6 +352,9 @@ export function App() {
               <h1>{activeCourse?.displayName ?? selectedOpeningSummary?.family ?? 'Curso'}</h1>
               <p className="focus-toolbar__meta">
                 {formatCourseCount(effectiveCourseOpenings.length, activeCourseOpenings.length)}
+                {courseVariationDisplays.length > 0
+                  ? ` | ${courseVariationDisplays.length} subvariantes unicas`
+                  : ''}
                 {effectiveCourseOpenings.length > 0
                   ? ` | profundidad efectiva ${effectiveDepthRange.min}-${effectiveDepthRange.max}`
                   : ''}
@@ -495,7 +500,7 @@ export function App() {
               <aside className="study-rail study-rail--focus">
                 <SectionCard
                   title="Subvariantes del curso"
-                  eyebrow={`${visibleVariations.length} visibles de ${effectiveCourseOpenings.length} jugables`}
+                  eyebrow={`${visibleVariations.length} visibles de ${courseVariationDisplays.length} subvariantes utiles`}
                 >
                   <label className="field">
                     <span>Filtrar subvariacion</span>
@@ -508,35 +513,51 @@ export function App() {
                   </label>
 
                   <div className="variation-list variation-list--focus">
-                    {visibleVariations.map((opening) => (
+                    {visibleVariations.map((variation) => (
                       <button
-                        key={opening.id}
+                        key={variation.key}
                         type="button"
-                        className={`variation-item ${selectedOpeningSummary?.id === opening.id ? 'is-active' : ''}`}
-                        onClick={() => handleSelectOpening(opening.id)}
+                        className={`variation-item ${
+                          selectedVariationDisplay?.key === variation.key ? 'is-active' : ''
+                        }`}
+                        onClick={() => handleSelectOpening(variation.representativeId)}
                       >
-                        <strong>{opening.canonicalName}</strong>
-                        <span>{opening.eco} | {opening.subvariation}</span>
-                        <small>{opening.movePreviewSan}</small>
+                        <strong>{variation.displayTitle}</strong>
+                        <span>{variation.ecoLabel} | {variation.displaySubtitle}</span>
+                        <small>{variation.movePreviewSan}</small>
+                        <small>
+                          {variation.namedLineCount > 1
+                            ? `${variation.namedLineCount} lineas equivalentes | `
+                            : ''}
+                          profundidad {variation.minDepth}-{variation.maxDepth}
+                        </small>
                       </button>
                     ))}
                   </div>
 
-                  {effectiveCourseOpenings.length > visibleVariations.length ? (
+                  {courseVariationDisplays.length > visibleVariations.length ? (
                     <p className="empty-state">
-                      La lista se recorta para mantener el layout rapido. Usa el filtro para saltar a una subvariante
-                      concreta.
+                      La lista se recorta para mantener el layout rapido. Cada tarjeta agrupa lineas equivalentes del
+                      dataset para evitar duplicados visuales.
                     </p>
                   ) : null}
                 </SectionCard>
 
                 {selectedOpeningSummary ? (
-                  <SectionCard title={selectedOpeningSummary.canonicalName} eyebrow={selectedOpeningSummary.eco}>
+                  <SectionCard
+                    title={selectedVariationDisplay?.displayTitle ?? selectedOpeningDisplay?.displayTitle ?? selectedOpeningSummary.canonicalName}
+                    eyebrow={selectedVariationDisplay?.ecoLabel ?? selectedOpeningDisplay?.ecoLabel ?? selectedOpeningSummary.eco}
+                  >
                     <div className="detail-meta">
-                      <p><strong>Curso:</strong> {activeCourse?.displayName ?? selectedOpeningSummary.family}</p>
-                      <p><strong>Subvariacion:</strong> {selectedOpeningSummary.subvariation}</p>
-                      <p><strong>Preview:</strong> {selectedLineSan ?? selectedOpeningSummary.movePreviewSan}</p>
-                      <p><strong>Aliases:</strong> {selectedOpeningSummary.aliases.join(', ') || 'Sin aliases'}</p>
+                      <p><strong>Curso:</strong> {activeCourse?.displayName ?? selectedOpeningDisplay?.displayFamily ?? selectedOpeningSummary.family}</p>
+                      <p><strong>Subvariacion:</strong> {selectedVariationDisplay?.displaySubtitle ?? selectedOpeningDisplay?.displaySubtitle ?? selectedOpeningSummary.subvariation}</p>
+                      <p><strong>Preview:</strong> {normalizeOpeningText(selectedLineSan ?? selectedVariationDisplay?.movePreviewSan ?? selectedOpeningSummary.movePreviewSan)}</p>
+                      <p><strong>Aliases:</strong> {selectedOpeningSummary.aliases.map((alias) => normalizeOpeningText(alias)).join(', ') || 'Sin aliases'}</p>
+                      {selectedVariationDisplay && selectedVariationDisplay.namedLineCount > 1 ? (
+                        <p>
+                          <strong>Agrupa:</strong> {selectedVariationDisplay.namedLineCount} lineas equivalentes del dataset
+                        </p>
+                      ) : null}
                     </div>
 
                     {labels.canonicalNames.length > 0 || labels.aliases.length > 0 ? (
@@ -578,8 +599,8 @@ export function App() {
                           <div className="stack-list">
                             {relatedTranspositions.map((opening) => (
                               <div key={opening.id} className="list-row">
-                                <strong>{opening.canonicalName}</strong>
-                                <span>{opening.subvariation}</span>
+                                <strong>{normalizeOpeningText(opening.canonicalName)}</strong>
+                                <span>{normalizeOpeningText(opening.subvariation)}</span>
                                 <code>{opening.eco}</code>
                               </div>
                             ))}
@@ -664,18 +685,22 @@ export function App() {
 
                 {deferredQuery.trim() ? (
                   <div className="opening-list opening-list--compact">
-                    {searchResults.map((opening) => (
+                    {searchResults.map((opening) => {
+                      const display = getOpeningDisplayFields(opening);
+
+                      return (
                       <button
                         key={opening.id}
                         type="button"
                         className={`opening-list__item ${selectedOpeningSummary?.id === opening.id ? 'is-active' : ''}`}
                         onClick={() => handleSelectOpening(opening.id)}
                       >
-                        <strong>{opening.canonicalName}</strong>
-                        <span>{opening.family}</span>
+                        <strong>{display.displayTitle}</strong>
+                        <span>{display.displayFamily}</span>
                         <code>{opening.eco}</code>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="course-card-grid">
@@ -688,7 +713,12 @@ export function App() {
                       >
                         <strong>{summary.displayName}</strong>
                         <span>{formatCourseCount(summary.studyReadyCount, summary.openingCount)}</span>
-                        <small>{summary.ecoRange}</small>
+                        <small>
+                          {summary.ecoRange}
+                          {summary.studyReadyCount > 0
+                            ? ` | profundidad util ${summary.effectiveMinDepth}-${summary.effectiveMaxDepth}`
+                            : ''}
+                        </small>
                       </button>
                     ))}
                   </div>
@@ -778,8 +808,8 @@ export function App() {
                       <span className="training-pill">
                         <strong>Rango</strong>
                         <span>
-                          {effectiveCourseOpenings.length > 0
-                            ? `${effectiveDepthRange.min}-${effectiveDepthRange.max}`
+                          {activeCourseSummary?.studyReadyCount
+                            ? `${activeCourseSummary.effectiveMinDepth}-${activeCourseSummary.effectiveMaxDepth}`
                             : 'Sin lineas'}
                         </span>
                       </span>
@@ -797,10 +827,10 @@ export function App() {
                   {selectedOpeningSummary ? (
                     <div className="detail-grid detail-grid--single">
                       <article className="info-panel">
-                        <h3>{selectedOpeningSummary.canonicalName}</h3>
-                        <p><strong>Subvariacion:</strong> {selectedOpeningSummary.subvariation}</p>
-                        <p><strong>Preview:</strong> {selectedLineSan ?? selectedOpeningSummary.movePreviewSan}</p>
-                        <p><strong>Aliases:</strong> {selectedOpeningSummary.aliases.join(', ') || 'Sin aliases'}</p>
+                        <h3>{selectedVariationDisplay?.displayTitle ?? selectedOpeningDisplay?.displayTitle ?? selectedOpeningSummary.canonicalName}</h3>
+                        <p><strong>Subvariacion:</strong> {selectedVariationDisplay?.displaySubtitle ?? selectedOpeningDisplay?.displaySubtitle ?? selectedOpeningSummary.subvariation}</p>
+                        <p><strong>Preview:</strong> {normalizeOpeningText(selectedLineSan ?? selectedVariationDisplay?.movePreviewSan ?? selectedOpeningSummary.movePreviewSan)}</p>
+                        <p><strong>Aliases:</strong> {selectedOpeningSummary.aliases.map((alias) => normalizeOpeningText(alias)).join(', ') || 'Sin aliases'}</p>
                       </article>
                     </div>
                   ) : null}
