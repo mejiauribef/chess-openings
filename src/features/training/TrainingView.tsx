@@ -69,6 +69,22 @@ function formatPercentage(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatTrainingColorLabel(value: TrainingSettings['trainingColor']): string {
+  if (value === 'white') {
+    return 'Solo blancas';
+  }
+
+  if (value === 'black') {
+    return 'Solo negras';
+  }
+
+  return 'Ambos lados';
+}
+
+function formatPlayerColorLabel(value: 'white' | 'black'): string {
+  return value === 'white' ? 'Blancas' : 'Negras';
+}
+
 function getTheoryHighlights(note: TheoryNote | undefined): Array<{ label: string; value: string }> {
   if (!note) {
     return [];
@@ -134,17 +150,20 @@ export function TrainingView({
     () => buildTrainingSourceSummaries(deck, reviewStates, sourceMetaById),
     [deck, reviewStates, sourceMetaById],
   );
+  const resolvedActiveSourceId =
+    sourceSummaries.find((entry) => entry.sourceId === activeSourceId)?.sourceId ??
+    sourceSummaries.find((entry) => (focusedSourceId ? entry.sourceIds.includes(focusedSourceId) : false))?.sourceId ??
+    sourceSummaries[0]?.sourceId;
   const activeSourceSummary = useMemo(() => {
     if (sourceSummaries.length === 0) {
       return undefined;
     }
 
     return (
-      sourceSummaries.find((entry) => entry.sourceId === activeSourceId) ??
-      sourceSummaries.find((entry) => (focusedSourceId ? entry.sourceIds.includes(focusedSourceId) : false)) ??
+      sourceSummaries.find((entry) => entry.sourceId === resolvedActiveSourceId) ??
       sourceSummaries[0]
     );
-  }, [activeSourceId, focusedSourceId, sourceSummaries]);
+  }, [resolvedActiveSourceId, sourceSummaries]);
   const activeDeck = useMemo(() => {
     if (!activeSourceSummary) {
       return deck;
@@ -152,17 +171,6 @@ export function TrainingView({
 
     return deck.filter((line) => activeSourceSummary.sourceIds.includes(line.lineSourceId));
   }, [activeSourceSummary, deck]);
-  const prioritizedSourceSummaries = useMemo(() => {
-    if (!activeSourceSummary) {
-      return sourceSummaries;
-    }
-
-    return [
-      activeSourceSummary,
-      ...sourceSummaries.filter((entry) => entry.sourceId !== activeSourceSummary.sourceId),
-    ];
-  }, [activeSourceSummary, sourceSummaries]);
-  const visibleSourceSummaries = prioritizedSourceSummaries.slice(0, 18);
   const safeLineIndex = activeDeck.length === 0 ? 0 : Math.min(currentLineIndex, activeDeck.length - 1);
   const currentLine = activeDeck[safeLineIndex];
   const discoveredLines = sourceSummaries.reduce((total, entry) => total + entry.discoveredLineCount, 0);
@@ -217,6 +225,8 @@ export function TrainingView({
     ? sourceSummaries.findIndex((entry) => entry.sourceId === activeSourceSummary.sourceId)
     : -1;
   const linePreviewSan = applyUciLine(currentLine.movePath).sanMoves.join(' ');
+  const playerColorLabel = formatPlayerColorLabel(currentLine.color);
+  const trainingColorLabel = formatTrainingColorLabel(settings.trainingColor);
 
   function moveToSource(offset: 1 | -1) {
     if (!activeSourceSummary || sourceSummaries.length === 0) {
@@ -258,7 +268,7 @@ export function TrainingView({
     }));
 
     if (resolvedMode === 'drill') {
-      setDrillStreak(result.mistakes === 0 ? (prev) => prev + 1 : 0);
+      setDrillStreak((prev) => (result.mistakes === 0 ? prev + 1 : 0));
     }
 
     window.setTimeout(() => {
@@ -292,104 +302,98 @@ export function TrainingView({
     moveToSource(1);
   }
 
-  function handleFocusSource(sourceId: string) {
-    setActiveSourceId(sourceId);
-    setCurrentLineIndex(0);
-    setLineKey((prev) => prev + 1);
-  }
-
   return (
     <div className="training-session training-session--focus">
       <div className="training-session__board">
-        <SectionCard title="Practica" eyebrow={scopeLabel ?? 'Curso activo'}>
-          <div className="training-stage-header">
-            <div className="training-stage-banner">
-              <span className="training-stage-banner__eyebrow">Ahora juegas</span>
-              <h3>{currentSourceMeta?.displayTitle ?? currentLine.openingName ?? 'Linea sin nombre'}</h3>
-              <p>
-                {currentSourceMeta?.ecoLabel ? `${currentSourceMeta.ecoLabel} | ` : ''}
-                {currentSourceMeta?.displaySubtitle ?? 'Subvariacion activa'}
-              </p>
-              <code>{linePreviewSan}</code>
-              {activeSourceSummary ? (
-                <small>
-                  Subvariante {currentSourcePosition + 1} de {sourceSummaries.length} | linea {safeLineIndex + 1} de{' '}
-                  {activeDeck.length}
-                </small>
-              ) : null}
-            </div>
-
-            <div className="training-stage-actions">
-              <div className="training-mode-grid training-mode-grid--compact">
-                {TRAINING_MODES.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    className={`mode-chip ${resolvedMode === entry.id ? 'is-active' : ''} ${
-                      !modeUnlockState[entry.id] ? 'is-locked' : ''
-                    }`}
-                    onClick={() => handleModeChange(entry.id)}
-                    disabled={!modeUnlockState[entry.id]}
-                  >
-                    <strong>{entry.label}</strong>
-                    <span>
-                      {modeUnlockState[entry.id]
-                        ? entry.description
-                        : MODE_UNLOCKS[entry.id].lockedLabel}
-                    </span>
-                  </button>
-                ))}
+        <section className="section-card training-stage-card">
+          <div className="section-card__body training-stage-card__body">
+            <div className="training-stage-header training-stage-header--compact">
+              <div className="training-stage-banner">
+                <span className="training-stage-banner__eyebrow">Ahora juegas</span>
+                <h3>{currentSourceMeta?.displayTitle ?? currentLine.openingName ?? 'Linea sin nombre'}</h3>
+                <p>
+                  {currentSourceMeta?.ecoLabel ? `${currentSourceMeta.ecoLabel} | ` : ''}
+                  {currentSourceMeta?.displaySubtitle ?? 'Subvariacion activa'}
+                </p>
+                <div className="training-stage-meta">
+                  <span className="training-stage-stat">{playerColorLabel}</span>
+                  <span className="training-stage-stat">
+                    Ruta {Math.max(currentSourcePosition + 1, 1)} de {sourceSummaries.length}
+                  </span>
+                  <span className="training-stage-stat">
+                    Linea {safeLineIndex + 1} de {activeDeck.length}
+                  </span>
+                </div>
+                <code>{linePreviewSan}</code>
               </div>
 
-              <div className="button-row button-row--compact">
-                <button type="button" className="secondary-button" onClick={() => moveToSource(-1)}>
-                  Subvariante anterior
-                </button>
-                <button type="button" className="secondary-button" onClick={handleSkip}>
-                  Saltar linea
-                </button>
-                <button type="button" className="secondary-button" onClick={() => moveToSource(1)}>
-                  Siguiente subvariante
-                </button>
-                {onClearScope ? (
-                  <button type="button" className="secondary-button" onClick={onClearScope}>
-                    Cambiar apertura
+              <div className="training-stage-actions">
+                <div className="training-mode-grid training-mode-grid--compact">
+                  {TRAINING_MODES.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className={`mode-chip ${resolvedMode === entry.id ? 'is-active' : ''} ${
+                        !modeUnlockState[entry.id] ? 'is-locked' : ''
+                      }`}
+                      onClick={() => handleModeChange(entry.id)}
+                      disabled={!modeUnlockState[entry.id]}
+                    >
+                      <strong>{entry.label}</strong>
+                      <span>
+                        {modeUnlockState[entry.id]
+                          ? entry.description
+                          : MODE_UNLOCKS[entry.id].lockedLabel}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="button-row button-row--compact button-row--toolbar">
+                  <button type="button" className="secondary-button" onClick={() => moveToSource(-1)} title="Subvariante anterior">
+                    Anterior
                   </button>
-                ) : null}
+                  <button type="button" className="secondary-button" onClick={handleSkip} title="Saltar linea actual">
+                    Saltar
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => moveToSource(1)} title="Siguiente subvariante">
+                    Siguiente
+                  </button>
+                  {onClearScope ? (
+                    <button type="button" className="secondary-button" onClick={onClearScope} title="Cambiar apertura o curso">
+                      Cambiar
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="training-focus-layout">
-            <div className="training-focus-layout__board">
-              <PlayableBoard
-                key={`${currentLine.id}-${lineKey}`}
-                lineMoves={currentLine.movePath}
-                playerColor={currentLine.color}
-                mode={resolvedMode}
-                opponentDelay={settings.opponentDelay}
-                autoRetryDelay={settings.autoRetryDelay}
-                hintsEnabled={resolvedMode === 'learn' && settings.hintsEnabled}
-                theoryNote={relatedTheory}
-                onLineComplete={(result) => void handleLineComplete(result)}
-              />
+            <div className="training-focus-layout training-focus-layout--single">
+              <div className="training-focus-layout__board">
+                <PlayableBoard
+                  key={`${currentLine.id}-${lineKey}`}
+                  lineMoves={currentLine.movePath}
+                  playerColor={currentLine.color}
+                  mode={resolvedMode}
+                  opponentDelay={settings.opponentDelay}
+                  autoRetryDelay={settings.autoRetryDelay}
+                  hintsEnabled={resolvedMode === 'learn' && settings.hintsEnabled}
+                  theoryNote={relatedTheory}
+                  onLineComplete={(result) => void handleLineComplete(result)}
+                />
+              </div>
             </div>
 
-            <aside className="training-focus-layout__sidebar">
+            <div className="training-context-grid">
               <article className="info-panel">
                 <h3>Estado del curso</h3>
                 <div className="detail-meta">
                   <p><strong>Curso:</strong> {scopeLabel ?? 'Sin foco'}</p>
-                  <p><strong>Subvariantes activas:</strong> {sourceSummaries.length}</p>
-                  <p><strong>Subvariante actual:</strong> {activeSourceSummary?.openingName ?? 'Sin foco'}</p>
-                  <p><strong>Lineas del curso:</strong> {deck.length}</p>
-                  <p><strong>Lineas en foco:</strong> {activeDeck.length}</p>
-                  <p><strong>Nuevas:</strong> {newLines} | <strong>Descubiertas:</strong> {discoveredLines}</p>
-                  <p><strong>Dominadas:</strong> {masteredLines}</p>
-                  <p><strong>Profundidad:</strong> {settings.minimumDepth}-{settings.maximumDepth}</p>
-                  <p><strong>Retencion:</strong> {formatPercentage(metrics.retentionRate)}</p>
+                  <p><strong>Filtro actual:</strong> {trainingColorLabel} | profundidad {settings.minimumDepth}-{settings.maximumDepth}</p>
+                  <p><strong>Ruta activa:</strong> {activeSourceSummary?.openingName ?? 'Sin foco'} ({activeDeck.length} lineas)</p>
+                  <p><strong>Progreso:</strong> {newLines} nuevas | {discoveredLines} descubiertas | {masteredLines} dominadas</p>
+                  <p><strong>Retencion:</strong> {formatPercentage(metrics.retentionRate)} | <strong>Reviews:</strong> {metrics.dueLines}</p>
                   <p><strong>Sesion:</strong> {sessionStats.completed} completadas, {sessionStats.mistakes} errores</p>
-                  <p><strong>Turno:</strong> {currentLine.color === 'white' ? 'Practicas blancas' : 'Practicas negras'}</p>
                   {resolvedMode === 'drill' ? (
                     <p className="drill-streak"><strong>Racha:</strong> <span>{drillStreak}</span></p>
                   ) : null}
@@ -400,55 +404,16 @@ export function TrainingView({
               </article>
 
               <article className="info-panel">
-                <h3>Plan del curso</h3>
-                <div className="training-source-list">
-                  {visibleSourceSummaries.map((entry) => {
-                    const isActive = entry.sourceId === activeSourceSummary?.sourceId;
-
-                    return (
-                      <button
-                        key={entry.sourceId}
-                        type="button"
-                        className={`training-source-card ${isActive ? 'is-active' : ''}`}
-                        onClick={() => handleFocusSource(entry.sourceId)}
-                      >
-                        <strong>{entry.openingName}</strong>
-                        <span>
-                          {entry.ecoLabel ? `${entry.ecoLabel} | ` : ''}
-                          {entry.displaySubtitle ?? 'Ruta activa'}
-                        </span>
-                        <small>{entry.movePreviewSan ?? 'Sin preview SAN'}</small>
-                        <small>
-                          {entry.namedLineCount && entry.namedLineCount > 1
-                            ? `${entry.namedLineCount} lineas equivalentes | `
-                            : ''}
-                          {entry.lineCount} lineas | {entry.dueCount} vencidas | {entry.discoveredLineCount} descubiertas |
-                          profundidad {entry.minDepth}-{entry.maxDepth}
-                        </small>
-                      </button>
-                    );
-                  })}
-                </div>
-                {sourceSummaries.length > visibleSourceSummaries.length ? (
-                  <p className="empty-state">
-                    Mostrando {visibleSourceSummaries.length} de {sourceSummaries.length} subvariantes para mantener el
-                    tablero rapido.
-                  </p>
-                ) : null}
-              </article>
-
-              <article className="info-panel">
                 <h3>Guia de estudio</h3>
                 <div className="detail-meta">
-                  <p><strong>Objetivo:</strong> domina una subvariante antes de saltar a la siguiente.</p>
-                  <p><strong>Modes:</strong> Practice se desbloquea con 1 linea descubierta, Drill con 3.</p>
-                  <p><strong>Estabilidad media:</strong> {metrics.averageStability.toFixed(1)}</p>
-                  <p><strong>Notas teoricas:</strong> {metrics.theoryCoverage.notedNodes}</p>
+                  <p><strong>Objetivo:</strong> domina esta ruta antes de cambiar a la siguiente.</p>
+                  <p><strong>Modo actual:</strong> {resolvedMode === 'learn' ? 'Learn con apoyo' : resolvedMode === 'practice' ? 'Practice con reintento' : 'Drill sin margen de error'}</p>
+                  <p><strong>Filtro de color:</strong> {trainingColorLabel}. Al cambiarlo se reinicia la ruta actual para evitar mezclar contextos.</p>
                 </div>
                 {currentSourceSummary ? (
                   <p className="empty-state">
-                    Esta subvariante aporta {currentSourceSummary.lineCount} lineas al curso, {currentSourceSummary.newLineCount}{' '}
-                    nuevas y una dificultad media de {currentSourceSummary.averageDifficulty.toFixed(1)}.
+                    Esta ruta agrupa {currentSourceSummary.lineCount} lineas, {currentSourceSummary.newLineCount} nuevas y una
+                    dificultad media de {currentSourceSummary.averageDifficulty.toFixed(1)}.
                   </p>
                 ) : null}
                 {theoryHighlights.length > 0 ? (
@@ -467,9 +432,9 @@ export function TrainingView({
                   </p>
                 )}
               </article>
-            </aside>
+            </div>
           </div>
-        </SectionCard>
+        </section>
       </div>
     </div>
   );

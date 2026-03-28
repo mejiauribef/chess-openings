@@ -110,14 +110,16 @@ export function RepertoireView({
         </button>
         {importError ? <p className="feedback feedback--error">{importError}</p> : null}
 
-        <div className="button-row">
-          <button type="button" className="secondary-button" onClick={() => setPgn(SAMPLE_PGNS.caroKann)}>
-            Seed Caro-Kann
-          </button>
-          <button type="button" className="secondary-button" onClick={() => setPgn(SAMPLE_PGNS.qgd)}>
-            Seed QGD
-          </button>
-        </div>
+        {!selectedOpening ? (
+          <div className="button-row">
+            <button type="button" className="secondary-button" onClick={() => setPgn(SAMPLE_PGNS.caroKann)}>
+              Seed Caro-Kann
+            </button>
+            <button type="button" className="secondary-button" onClick={() => setPgn(SAMPLE_PGNS.qgd)}>
+              Seed QGD
+            </button>
+          </div>
+        ) : null}
       </SectionCard>
 
       <SectionCard title="Lineas guardadas" eyebrow={`${repertoireLines.length} lineas`}>
@@ -198,8 +200,12 @@ export function RepertoireView({
               ...(selectedOpening
                 ? [{ label: 'Agregar apertura actual a blancas', onClick: () => void onCreateFromOpening('white') }]
                 : []),
-              { label: 'Seed Caro-Kann', onClick: () => setPgn(SAMPLE_PGNS.caroKann), variant: 'secondary' },
-              { label: 'Seed QGD', onClick: () => setPgn(SAMPLE_PGNS.qgd), variant: 'secondary' },
+              ...(!selectedOpening
+                ? [
+                    { label: 'Seed Caro-Kann', onClick: () => setPgn(SAMPLE_PGNS.caroKann), variant: 'secondary' as const },
+                    { label: 'Seed QGD', onClick: () => setPgn(SAMPLE_PGNS.qgd), variant: 'secondary' as const },
+                  ]
+                : []),
             ]}
           />
         )}

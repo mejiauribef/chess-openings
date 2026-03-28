@@ -22,8 +22,8 @@ import { useAppStore } from '@/store/useAppStore';
 
 const COURSE_CARD_LIMIT = 18;
 const SEARCH_RESULT_LIMIT = 24;
-const BROWSE_VARIATION_LIMIT = 18;
-const FOCUS_VARIATION_LIMIT = 24;
+const BROWSE_VARIATION_PAGE_SIZE = 12;
+const FOCUS_VARIATION_PAGE_SIZE = 18;
 type FocusRailPanel = 'detail' | 'repertoire' | 'theory' | 'settings';
 
 function getDepthRange(depths: number[]): { min: number; max: number } {
@@ -52,6 +52,7 @@ function formatCourseCount(studyReadyCount: number, totalCount: number): string 
 export function App() {
   const [query, setQuery] = useState('');
   const [variationQuery, setVariationQuery] = useState('');
+  const [variationPage, setVariationPage] = useState(1);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [focusRailPanel, setFocusRailPanel] = useState<FocusRailPanel>('detail');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -268,18 +269,20 @@ export function App() {
       )
       .slice(0, COURSE_CARD_LIMIT);
   }, [courseSummaries, deferredQuery, searchResults]);
-  const visibleVariations = useMemo(() => {
-    const source = courseVariationDisplays;
-    const limit = isFocusMode ? FOCUS_VARIATION_LIMIT : BROWSE_VARIATION_LIMIT;
-
+  const filteredVariations = useMemo(() => {
     if (!deferredVariationQuery.trim()) {
-      return source.slice(0, limit);
+      return courseVariationDisplays;
     }
 
-    return source
-      .filter((variation) => matchesCourseVariationQuery(variation, deferredVariationQuery))
-      .slice(0, limit);
-  }, [courseVariationDisplays, deferredVariationQuery, isFocusMode]);
+    return courseVariationDisplays.filter((variation) =>
+      matchesCourseVariationQuery(variation, deferredVariationQuery),
+    );
+  }, [courseVariationDisplays, deferredVariationQuery]);
+  const variationPageSize = isFocusMode ? FOCUS_VARIATION_PAGE_SIZE : BROWSE_VARIATION_PAGE_SIZE;
+  const visibleVariations = useMemo(
+    () => filteredVariations.slice(0, variationPage * variationPageSize),
+    [filteredVariations, variationPage, variationPageSize],
+  );
   const selectedNode = selectedNodeId ? graph.nodes[selectedNodeId] : undefined;
   const labels = useMemo(
     () =>
@@ -336,6 +339,47 @@ export function App() {
     () => getDepthRange(effectiveCourseOpenings.map((opening) => opening.depth)),
     [effectiveCourseOpenings],
   );
+  const trainingColorSummary =
+    settings.trainingColor === 'white'
+      ? 'Solo blancas'
+      : settings.trainingColor === 'black'
+        ? 'Solo negras'
+        : 'Ambos lados';
+  const focusToolbarStats = useMemo(
+    () => [
+      {
+        label: 'Subvariantes',
+        value: courseVariationDisplays.length,
+        hint: 'rutas utiles del curso',
+      },
+      {
+        label: 'Lineas',
+        value: effectiveCourseOpenings.length,
+        hint:
+          effectiveCourseOpenings.length > 0
+            ? `profundidad ${effectiveDepthRange.min}-${effectiveDepthRange.max}`
+            : 'sin lineas jugables',
+      },
+      {
+        label: 'Color',
+        value: trainingColorSummary,
+        hint: 'lado que practicas ahora',
+      },
+      {
+        label: 'Review',
+        value: scopedMetrics.dueLines,
+        hint: 'repasos pendientes',
+      },
+    ],
+    [
+      courseVariationDisplays.length,
+      effectiveCourseOpenings.length,
+      effectiveDepthRange.max,
+      effectiveDepthRange.min,
+      scopedMetrics.dueLines,
+      trainingColorSummary,
+    ],
+  );
 
   useEffect(() => {
     if (isHydrating || isTrainingScopeLoading || scopedLines.length > 0) {
@@ -370,6 +414,7 @@ export function App() {
   function handleVariationQueryChange(nextQuery: string) {
     startTransition(() => {
       setVariationQuery(nextQuery);
+      setVariationPage(1);
     });
   }
 
@@ -385,12 +430,14 @@ export function App() {
   function handleSelectCourse(nextCourseKey: string) {
     closePicker();
     setVariationQuery('');
+    setVariationPage(1);
     selectCourse(nextCourseKey);
   }
 
   function handleSelectOpening(nextOpeningId: string) {
     closePicker();
     setVariationQuery('');
+    setVariationPage(1);
     selectOpening(nextOpeningId);
   }
 
@@ -439,16 +486,18 @@ export function App() {
             <div className="focus-toolbar__summary">
               <p className="hero__eyebrow">Curso activo</p>
               <h1>{activeCourse?.displayName ?? selectedOpeningSummary?.family ?? 'Curso'}</h1>
-              <p className="focus-toolbar__meta">
-                {formatCourseCount(effectiveCourseOpenings.length, activeCourseOpenings.length)}
-                {courseVariationDisplays.length > 0
-                  ? ` | ${courseVariationDisplays.length} subvariantes unicas`
-                  : ''}
-                {effectiveCourseOpenings.length > 0
-                  ? ` | profundidad efectiva ${effectiveDepthRange.min}-${effectiveDepthRange.max}`
-                  : ''}
-                {` | ${scopedMetrics.dueLines} reviews pendientes`}
+              <p className="focus-toolbar__hint">
+                El tablero queda en foco. Cambiar el color reinicia la ruta actual para no mezclar contextos.
               </p>
+              <div className="focus-toolbar__stats" aria-label="Resumen del curso activo">
+                {focusToolbarStats.map((stat) => (
+                  <article key={stat.label} className="focus-toolbar__stat">
+                    <span>{stat.label}</span>
+                    <strong>{stat.value}</strong>
+                    <small>{stat.hint}</small>
+                  </article>
+                ))}
+              </div>
             </div>
 
             <div className="focus-toolbar__actions">
@@ -485,7 +534,7 @@ export function App() {
               </label>
 
               <label className="field field--compact">
-                <span>Color</span>
+                <span>Entrenas como</span>
                 <select
                   value={settings.trainingColor}
                   onChange={(event) =>
@@ -494,9 +543,9 @@ export function App() {
                     })
                   }
                 >
-                  <option value="both">Ambos</option>
-                  <option value="white">Blancas</option>
-                  <option value="black">Negras</option>
+                  <option value="both">Ambos lados</option>
+                  <option value="white">Solo blancas</option>
+                  <option value="black">Solo negras</option>
                 </select>
               </label>
 
@@ -542,7 +591,7 @@ export function App() {
             <div className="study-layout study-layout--focus">
               <section className="study-main">
                 <TrainingView
-                  key={`${resolvedCourseKey ?? 'course'}-${selectedOpeningSummary?.id ?? 'none'}`}
+                  key={`${resolvedCourseKey ?? 'course'}-${selectedOpeningSummary?.id ?? 'none'}-${settings.trainingColor}-${settings.minimumDepth}-${settings.maximumDepth}`}
                   graph={graph}
                   allLines={scopedLines}
                   settings={settings}
@@ -572,8 +621,8 @@ export function App() {
 
               <aside className="study-rail study-rail--focus">
                 <SectionCard
-                  title="Subvariantes del curso"
-                  eyebrow={`${visibleVariations.length} visibles de ${courseVariationDisplays.length} subvariantes utiles`}
+                  title="Plan del curso"
+                  eyebrow={`${filteredVariations.length} rutas | ${effectiveCourseOpenings.length} lineas | ${trainingColorSummary.toLowerCase()}`}
                 >
                   <label className="field">
                     <span>Filtrar subvariacion</span>
@@ -608,11 +657,31 @@ export function App() {
                     ))}
                   </div>
 
-                  {courseVariationDisplays.length > visibleVariations.length ? (
-                    <p className="empty-state">
-                      La lista se recorta para mantener el layout rapido. Cada tarjeta agrupa lineas equivalentes del
-                      dataset para evitar duplicados visuales.
-                    </p>
+                  {filteredVariations.length > visibleVariations.length ? (
+                    <div className="variation-list__footer">
+                      <p className="empty-state">
+                        Mostrando {visibleVariations.length} de {filteredVariations.length} rutas. Cada tarjeta agrupa
+                        lineas equivalentes del dataset para evitar duplicados visuales.
+                      </p>
+                      <div className="button-row button-row--compact">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => setVariationPage((current) => current + 1)}
+                        >
+                          Ver mas
+                        </button>
+                        {variationPage > 1 ? (
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => setVariationPage(1)}
+                          >
+                            Ver menos
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
                   ) : null}
                 </SectionCard>
 

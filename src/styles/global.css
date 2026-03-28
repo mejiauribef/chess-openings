@@ -43,7 +43,7 @@ code {
 .app-shell {
   width: min(1440px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: 2rem 0 3rem;
+  padding: 1rem 0 3rem;
 }
 
 .app-shell--study {
@@ -70,10 +70,10 @@ code {
 .focus-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
+  gap: 0.85rem;
   align-items: end;
-  margin-bottom: 1rem;
-  padding: 1rem 1.25rem;
+  margin-bottom: 0.85rem;
+  padding: 0.9rem 1rem;
   border-radius: 24px;
   background: rgba(15, 23, 42, 0.78);
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -81,16 +81,50 @@ code {
 }
 
 .focus-toolbar h1 {
-  font-size: clamp(1.6rem, 2.2vw, 2.35rem);
-  margin: 0.2rem 0 0;
+  font-size: clamp(1.35rem, 2vw, 2.1rem);
+  margin: 0.1rem 0 0;
 }
 
 .focus-toolbar__summary {
   min-width: 0;
 }
 
-.focus-toolbar__meta {
-  margin: 0;
+.focus-toolbar__hint {
+  margin: 0.2rem 0 0;
+  color: #cbd5e1;
+  max-width: 60ch;
+}
+
+.focus-toolbar__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.focus-toolbar__stat {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.focus-toolbar__stat span {
+  color: #93c5fd;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.focus-toolbar__stat strong {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.focus-toolbar__stat small {
   color: #cbd5e1;
 }
 
@@ -280,7 +314,7 @@ code {
 .field--compact,
 .focus-toolbar__actions .toggle {
   margin-bottom: 0;
-  min-width: 96px;
+  min-width: 108px;
 }
 
 .field--compact span {
@@ -641,14 +675,14 @@ code {
 
 .playable-board {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.6rem;
   width: 100%;
-  max-width: 760px;
+  max-width: 820px;
 }
 
 .playable-board__feedback {
-  min-height: 2rem;
-  padding: 0.5rem 1rem;
+  min-height: 1.5rem;
+  padding: 0.45rem 0.85rem;
   border-radius: 12px;
   background: transparent;
   transition: background 0.2s;
@@ -660,8 +694,9 @@ code {
 
 .playable-board__prompt {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.85rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.4rem 0.75rem;
+  padding: 0.7rem 0.85rem;
   border-radius: 16px;
   background: rgba(15, 23, 42, 0.82);
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -670,6 +705,28 @@ code {
 .playable-board__prompt p {
   margin: 0;
   color: #cbd5e1;
+  font-size: 0.92rem;
+}
+
+.playable-board__surface {
+  position: relative;
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+.playable-board__board-frame {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 20px;
+  transform: translate3d(0, 0, 0);
+  contain: layout paint;
+}
+
+.playable-board__board-frame > div {
+  position: relative;
+  transform: translate3d(0, 0, 0);
 }
 
 .playable-board__feedback--correct {
@@ -722,6 +779,10 @@ code {
   align-items: start;
 }
 
+.training-focus-layout--single {
+  grid-template-columns: 1fr;
+}
+
 .training-focus-layout__board,
 .training-focus-layout__sidebar {
   display: grid;
@@ -737,14 +798,18 @@ code {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   align-items: start;
+}
+
+.training-stage-header--compact {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
 }
 
 .training-stage-banner {
   display: grid;
-  gap: 0.35rem;
-  padding: 1rem;
+  gap: 0.3rem;
+  padding: 0.85rem 0.95rem;
   border-radius: 20px;
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(14, 165, 233, 0.12));
   border: 1px solid rgba(245, 158, 11, 0.22);
@@ -770,7 +835,7 @@ code {
 
 .training-stage-banner code {
   color: #f8fafc;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   white-space: normal;
 }
 
@@ -778,10 +843,28 @@ code {
   color: #cbd5e1;
 }
 
+.training-stage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.training-stage-stat {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: #dbeafe;
+  font-size: 0.82rem;
+}
+
 .training-stage-actions {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.55rem;
   align-content: start;
+  min-width: 0;
 }
 
 .training-line-card {
@@ -834,6 +917,24 @@ code {
   color: #cbd5e1;
 }
 
+.variation-item,
+.training-source-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.variation-item strong,
+.variation-item span,
+.variation-item small,
+.training-source-card strong,
+.training-source-card span,
+.training-source-card small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .training-source-card.is-active {
   border-color: rgba(245, 158, 11, 0.5);
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(14, 165, 233, 0.1));
@@ -848,6 +949,16 @@ code {
 
 .training-mode-grid--compact {
   margin-bottom: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.training-mode-grid--compact .mode-chip {
+  padding: 0.65rem 0.75rem;
+}
+
+.training-mode-grid--compact .mode-chip span {
+  font-size: 0.82rem;
+  line-height: 1.25;
 }
 
 .training-pill {
@@ -1001,7 +1112,9 @@ code {
 
 .study-rail--focus {
   position: sticky;
-  top: 1rem;
+  top: 0.75rem;
+  align-self: start;
+  min-width: 0;
 }
 
 .course-card-grid,
@@ -1041,7 +1154,13 @@ code {
 }
 
 .variation-list--focus {
-  max-height: 58vh;
+  max-height: 46vh;
+}
+
+.variation-list__footer {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
 }
 
 .focus-panel-tabs {
@@ -1085,6 +1204,27 @@ code {
   grid-template-columns: 1fr;
 }
 
+.training-stage-card__body {
+  padding-top: 1rem;
+}
+
+.training-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.button-row--toolbar {
+  justify-content: flex-start;
+  gap: 0.55rem;
+}
+
+.button-row--toolbar .secondary-button {
+  min-width: 92px;
+  padding: 0.58rem 0.8rem;
+}
+
 @media (max-width: 900px) {
   .feature-grid {
     grid-template-columns: 1fr;
@@ -1098,7 +1238,8 @@ code {
   .training-stage-header,
   .focus-toolbar,
   .hero--study,
-  .study-layout {
+  .study-layout,
+  .training-context-grid {
     grid-template-columns: 1fr;
   }
 

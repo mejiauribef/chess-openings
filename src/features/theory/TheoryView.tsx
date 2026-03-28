@@ -66,6 +66,20 @@ function createEmptyForm(nodeId?: string): TheoryFormState {
   };
 }
 
+function describeNode(graph: OpeningGraph, nodeId: string): string {
+  const labels = getNodeLabels(graph, nodeId);
+  if (labels.canonicalNames[0]) {
+    return labels.canonicalNames[0];
+  }
+
+  const path = findPathToNode(graph, nodeId);
+  if (path?.sanMoves.length) {
+    return path.sanMoves.slice(-4).join(' ');
+  }
+
+  return 'Posicion relacionada';
+}
+
 function toFormState(note: TheoryNote): TheoryFormState {
   return {
     id: note.id,
@@ -155,6 +169,8 @@ export function TheoryView({
   const node = graph.nodes[currentNodeId];
   const path = findPathToNode(graph, currentNodeId) ?? { uciMoves: [], sanMoves: [] };
   const labels = getNodeLabels(graph, currentNodeId);
+  const visibleCanonicalNames = labels.canonicalNames.slice(0, 3);
+  const hiddenCanonicalNameCount = Math.max(0, labels.canonicalNames.length - visibleCanonicalNames.length);
   const suggestedLinks = [
     ...node.parentIds,
     ...node.childEdges.map((edge) => edge.toNodeId),
@@ -202,10 +218,12 @@ export function TheoryView({
 
   return (
     <div className="feature-grid">
-      <SectionCard title="Teoria por posicion" eyebrow={`Nodo ${currentNodeId}`}>
+      <SectionCard title="Teoria por posicion" eyebrow="Posicion activa">
         <div className="detail-meta">
           <p>
-            <strong>Clasificaciones:</strong> {labels.canonicalNames.join(' / ') || 'Sin nombre'}
+            <strong>Clasificaciones:</strong>{' '}
+            {visibleCanonicalNames.join(' / ') || 'Sin nombre'}
+            {hiddenCanonicalNameCount > 0 ? ` +${hiddenCanonicalNameCount} mas` : ''}
           </p>
           <p>
             <strong>Breadcrumbs:</strong> {path.sanMoves.join(' ') || 'Posicion inicial'}
@@ -218,6 +236,11 @@ export function TheoryView({
         <BoardPanel title="Posicion seleccionada" uciMoves={path.uciMoves} />
 
         <div className="chip-row">
+          {visibleCanonicalNames.map((label) => (
+            <span key={label} className="chip">
+              {label}
+            </span>
+          ))}
           {labels.aliases.map((alias) => (
             <span key={alias} className="chip chip--muted">
               {alias}
@@ -401,11 +424,11 @@ export function TheoryView({
         <article className="info-panel">
           <h3>Enlaces entre posiciones</h3>
           <div className="chip-row">
-            {suggestedLinks.map((linkNodeId) => (
-              <button
-                key={linkNodeId}
-                type="button"
-                className={`chip-button ${form.linkedNodeIds.includes(linkNodeId) ? 'is-active' : ''}`}
+              {suggestedLinks.map((linkNodeId) => (
+                <button
+                  key={linkNodeId}
+                  type="button"
+                  className={`chip-button ${form.linkedNodeIds.includes(linkNodeId) ? 'is-active' : ''}`}
                 onClick={() =>
                   updateForm((state) => ({
                     ...state,
@@ -414,10 +437,10 @@ export function TheoryView({
                       : [...state.linkedNodeIds, linkNodeId],
                   }))
                 }
-              >
-                {linkNodeId}
-              </button>
-            ))}
+                >
+                  {describeNode(graph, linkNodeId)}
+                </button>
+              ))}
           </div>
 
           {form.linkedNodeIds.length > 0 ? (
@@ -429,7 +452,7 @@ export function TheoryView({
                   className="opening-list__item"
                   onClick={() => onSelectNode(linkNodeId)}
                 >
-                  <strong>{linkNodeId}</strong>
+                  <strong>{describeNode(graph, linkNodeId)}</strong>
                   <span>Ir a la posicion enlazada</span>
                 </button>
               ))}

@@ -21,9 +21,7 @@ export async function waitForSelectedOpeningLoaded(
     await waitForAppShell(page);
   }
 
-  await expect(page.getByRole('heading', { name: 'Practica', exact: true })).toBeVisible({
-    timeout: 120_000,
-  });
+  await expect(page.locator('.training-stage-banner')).toBeVisible({ timeout: 120_000 });
   await expect(page.locator('.playable-board')).toBeVisible({
     timeout: 120_000,
   });

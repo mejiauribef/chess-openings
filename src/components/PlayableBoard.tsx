@@ -310,23 +310,32 @@ export function PlayableBoard({
         ) : null}
       </div>
 
-      <Chessboard
-        position={fen}
-        boardOrientation={playerColor}
-        arePiecesDraggable={isPlayerTurn && feedbackState === 'idle'}
-        isDraggablePiece={({ piece }) => {
-          const side = playerColor === 'white' ? 'w' : 'b';
-          return piece[0] === side;
-        }}
-        onPieceDrop={onPieceDrop}
-        onSquareClick={onSquareClick}
-        onPromotionPieceSelect={onPromotionPieceSelect}
-        customArrowColor="rgba(34, 197, 94, 0.7)"
-        customArrows={customArrows}
-        customSquareStyles={customSquareStyles}
-        animationDuration={200}
-        boardWidth={boardWidth}
-      />
+      <div className="playable-board__surface">
+        <div className="playable-board__board-frame">
+          <Chessboard
+            position={fen}
+            boardOrientation={playerColor}
+            arePiecesDraggable={isPlayerTurn && feedbackState === 'idle'}
+            isDraggablePiece={({ piece }) => {
+              const side = playerColor === 'white' ? 'w' : 'b';
+              return piece[0] === side;
+            }}
+            onPieceDrop={onPieceDrop}
+            onSquareClick={onSquareClick}
+            onPromotionPieceSelect={onPromotionPieceSelect}
+            customArrowColor="rgba(34, 197, 94, 0.7)"
+            customArrows={customArrows}
+            customSquareStyles={customSquareStyles}
+            animationDuration={200}
+            boardWidth={boardWidth}
+            customBoardStyle={{
+              borderRadius: '20px',
+              overflow: 'hidden',
+              boxShadow: '0 20px 48px rgba(2, 6, 23, 0.28)',
+            }}
+          />
+        </div>
+      </div>
 
       {mode === 'learn' && hintsEnabled && theoryNote?.summary ? (
         <p className="playable-board__theory">{theoryNote.summary}</p>
