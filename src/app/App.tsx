@@ -24,6 +24,7 @@ const COURSE_CARD_LIMIT = 18;
 const SEARCH_RESULT_LIMIT = 24;
 const BROWSE_VARIATION_LIMIT = 18;
 const FOCUS_VARIATION_LIMIT = 24;
+type FocusRailPanel = 'detail' | 'repertoire' | 'theory' | 'settings';
 
 function getDepthRange(depths: number[]): { min: number; max: number } {
   if (depths.length === 0) {
@@ -52,6 +53,7 @@ export function App() {
   const [query, setQuery] = useState('');
   const [variationQuery, setVariationQuery] = useState('');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [focusRailPanel, setFocusRailPanel] = useState<FocusRailPanel>('detail');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const deferredQuery = useDeferredValue(query);
   const deferredVariationQuery = useDeferredValue(variationQuery);
@@ -160,6 +162,66 @@ export function App() {
     () => courseSummaries.find((summary) => summary.key === resolvedCourseKey),
     [courseSummaries, resolvedCourseKey],
   );
+  const browseMetrics = useMemo(() => {
+    if (activeCourseSummary && activeCourseOpenings.length > 0) {
+      return [
+        {
+          label: 'Curso',
+          value: activeCourse?.displayName ?? activeCourseSummary.displayName,
+          hint: 'curso seleccionado',
+        },
+        {
+          label: 'Jugables',
+          value: effectiveCourseOpenings.length,
+          hint: formatCourseCount(effectiveCourseOpenings.length, activeCourseOpenings.length),
+        },
+        {
+          label: 'Profundidad',
+          value:
+            activeCourseSummary.studyReadyCount > 0
+              ? `${activeCourseSummary.effectiveMinDepth}-${activeCourseSummary.effectiveMaxDepth}`
+              : 'Sin lineas',
+          hint: 'rango util del curso',
+        },
+        {
+          label: 'Review',
+          value: scopedMetrics.dueLines,
+          hint: 'lineas vencidas del curso',
+        },
+      ];
+    }
+
+    return [
+      {
+        label: 'Catalogo',
+        value: openings.length,
+        hint: 'lineas nombradas',
+      },
+      {
+        label: 'Familias',
+        value: familyIndex.groups.length,
+        hint: 'cursos potenciales',
+      },
+      {
+        label: 'Curso listo',
+        value: activeCourseSummary?.studyReadyCount ?? 0,
+        hint: 'subvariantes con profundidad util',
+      },
+      {
+        label: 'Review',
+        value: scopedMetrics.dueLines,
+        hint: 'lineas vencidas',
+      },
+    ];
+  }, [
+    activeCourse,
+    activeCourseOpenings.length,
+    activeCourseSummary,
+    effectiveCourseOpenings.length,
+    familyIndex.groups.length,
+    openings.length,
+    scopedMetrics.dueLines,
+  ]);
   const selectedOpeningSummary =
     effectiveCourseOpenings.find((opening) => opening.id === selectedOpeningId) ??
     activeCourseOpenings.find((opening) => opening.id === selectedOpeningId) ??
@@ -328,6 +390,29 @@ export function App() {
     selectOpening(nextOpeningId);
   }
 
+  const focusPanelTitle =
+    focusRailPanel === 'detail'
+      ? selectedVariationDisplay?.displayTitle ??
+        selectedOpeningDisplay?.displayTitle ??
+        selectedOpeningSummary?.canonicalName ??
+        'Detalle'
+      : focusRailPanel === 'repertoire'
+        ? 'Repertorio local'
+        : focusRailPanel === 'theory'
+          ? 'Teoria por posicion'
+          : 'Ajustes avanzados';
+  const focusPanelEyebrow =
+    focusRailPanel === 'detail'
+      ? selectedVariationDisplay?.ecoLabel ??
+        selectedOpeningDisplay?.ecoLabel ??
+        selectedOpeningSummary?.eco ??
+        'Detalle del curso'
+      : focusRailPanel === 'repertoire'
+        ? 'Lineas activas y seeds'
+        : focusRailPanel === 'theory'
+          ? 'Notas por posicion'
+          : 'Control del curso';
+
   if (status === 'error') {
     return (
       <main className="app-shell">
@@ -420,37 +505,21 @@ export function App() {
           <header className="hero hero--study">
             <div>
               <p className="hero__eyebrow">Local first chess opening trainer</p>
-              <h1>Elige una apertura y practica todas sus subvariantes utiles</h1>
+              <h1>Elige una apertura y entra a practicar</h1>
               <p className="hero__copy">
-                Flujo local-first inspirado por la experiencia de curso de{' '}
-                <a href="https://www.chessreps.com/" target="_blank" rel="noreferrer">
-                  ChessReps
-                </a>
-                . Una vez eliges el curso, el tablero toma prioridad y la navegacion se comprime.
+                Busca por nombre, ECO o primeras jugadas. En cuanto eliges un curso, el tablero toma prioridad y el
+                resto de herramientas se mueve al lateral.
               </p>
             </div>
 
             <div className="hero-metrics" aria-label="Estado rapido del workspace">
-              <article className="hero-metric">
-                <span>Catalogo</span>
-                <strong>{openings.length}</strong>
-                <small>lineas nombradas</small>
-              </article>
-              <article className="hero-metric">
-                <span>Familias</span>
-                <strong>{familyIndex.groups.length}</strong>
-                <small>cursos potenciales</small>
-              </article>
-              <article className="hero-metric">
-                <span>Curso listo</span>
-                <strong>{activeCourseSummary?.studyReadyCount ?? 0}</strong>
-                <small>subvariantes con profundidad util</small>
-              </article>
-              <article className="hero-metric">
-                <span>Review</span>
-                <strong>{scopedMetrics.dueLines}</strong>
-                <small>lineas vencidas</small>
-              </article>
+              {browseMetrics.map((metric) => (
+                <article key={metric.label} className="hero-metric">
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                  <small>{metric.hint}</small>
+                </article>
+              ))}
             </div>
           </header>
         )}
@@ -543,130 +612,138 @@ export function App() {
                   ) : null}
                 </SectionCard>
 
-                {selectedOpeningSummary ? (
-                  <SectionCard
-                    title={selectedVariationDisplay?.displayTitle ?? selectedOpeningDisplay?.displayTitle ?? selectedOpeningSummary.canonicalName}
-                    eyebrow={selectedVariationDisplay?.ecoLabel ?? selectedOpeningDisplay?.ecoLabel ?? selectedOpeningSummary.eco}
-                  >
-                    <div className="detail-meta">
-                      <p><strong>Curso:</strong> {activeCourse?.displayName ?? selectedOpeningDisplay?.displayFamily ?? selectedOpeningSummary.family}</p>
-                      <p><strong>Subvariacion:</strong> {selectedVariationDisplay?.displaySubtitle ?? selectedOpeningDisplay?.displaySubtitle ?? selectedOpeningSummary.subvariation}</p>
-                      <p><strong>Preview:</strong> {normalizeOpeningText(selectedLineSan ?? selectedVariationDisplay?.movePreviewSan ?? selectedOpeningSummary.movePreviewSan)}</p>
-                      <p><strong>Aliases:</strong> {selectedOpeningSummary.aliases.map((alias) => normalizeOpeningText(alias)).join(', ') || 'Sin aliases'}</p>
-                      {selectedVariationDisplay && selectedVariationDisplay.namedLineCount > 1 ? (
-                        <p>
-                          <strong>Agrupa:</strong> {selectedVariationDisplay.namedLineCount} lineas equivalentes del dataset
-                        </p>
-                      ) : null}
-                    </div>
+                <SectionCard title={focusPanelTitle} eyebrow={focusPanelEyebrow}>
+                  <div className="focus-panel-tabs" role="tablist" aria-label="Herramientas del curso">
+                    {[
+                      { id: 'detail', label: 'Detalle' },
+                      { id: 'repertoire', label: 'Repertorio' },
+                      { id: 'theory', label: 'Teoria' },
+                      { id: 'settings', label: 'Ajustes' },
+                    ].map((panel) => (
+                      <button
+                        key={panel.id}
+                        type="button"
+                        className={`focus-panel-tabs__button ${focusRailPanel === panel.id ? 'is-active' : ''}`}
+                        onClick={() => setFocusRailPanel(panel.id as FocusRailPanel)}
+                        role="tab"
+                        aria-selected={focusRailPanel === panel.id}
+                      >
+                        {panel.label}
+                      </button>
+                    ))}
+                  </div>
 
-                    {labels.canonicalNames.length > 0 || labels.aliases.length > 0 ? (
-                      <div className="chip-row">
-                        {labels.canonicalNames.map((label) => (
-                          <span key={label} className="chip">{label}</span>
-                        ))}
-                        {labels.aliases.map((label) => (
-                          <span key={label} className="chip chip--muted">{label}</span>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    <div className="detail-grid detail-grid--single">
-                      <article className="info-panel">
-                        <h3>Ramas disponibles</h3>
-                        {childBranches.length > 0 ? (
-                          <div className="stack-list">
-                            {childBranches.map(({ edge, title }) => (
-                              <div key={`${edge.fromNodeId}-${edge.uci}`} className="list-row">
-                                <strong>{edge.san}</strong>
-                                <span>{title}</span>
-                                <code>{edge.uci}</code>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="empty-state">
-                            {loadingBuckets.includes(selectedOpeningSummary.bucketKey)
-                              ? 'Cargando ramas de esta posicion...'
-                              : 'Esta linea aun no tiene ramas hijas cargadas en memoria.'}
+                  {focusRailPanel === 'detail' && selectedOpeningSummary ? (
+                    <>
+                      <div className="detail-meta">
+                        <p><strong>Curso:</strong> {activeCourse?.displayName ?? selectedOpeningDisplay?.displayFamily ?? selectedOpeningSummary.family}</p>
+                        <p><strong>Subvariacion:</strong> {selectedVariationDisplay?.displaySubtitle ?? selectedOpeningDisplay?.displaySubtitle ?? selectedOpeningSummary.subvariation}</p>
+                        <p><strong>Preview:</strong> {normalizeOpeningText(selectedLineSan ?? selectedVariationDisplay?.movePreviewSan ?? selectedOpeningSummary.movePreviewSan)}</p>
+                        <p><strong>Aliases:</strong> {selectedOpeningSummary.aliases.map((alias) => normalizeOpeningText(alias)).join(', ') || 'Sin aliases'}</p>
+                        {selectedVariationDisplay && selectedVariationDisplay.namedLineCount > 1 ? (
+                          <p>
+                            <strong>Agrupa:</strong> {selectedVariationDisplay.namedLineCount} lineas equivalentes del dataset
                           </p>
-                        )}
-                      </article>
+                        ) : null}
+                      </div>
 
-                      <article className="info-panel">
-                        <h3>Transposiciones relacionadas</h3>
-                        {relatedTranspositions.length > 0 ? (
-                          <div className="stack-list">
-                            {relatedTranspositions.map((opening) => (
-                              <div key={opening.id} className="list-row">
-                                <strong>{normalizeOpeningText(opening.canonicalName)}</strong>
-                                <span>{normalizeOpeningText(opening.subvariation)}</span>
-                                <code>{opening.eco}</code>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="empty-state">Sin otras clasificaciones visibles en esta posicion.</p>
-                        )}
-                      </article>
+                      {labels.canonicalNames.length > 0 || labels.aliases.length > 0 ? (
+                        <div className="chip-row">
+                          {labels.canonicalNames.map((label) => (
+                            <span key={label} className="chip">{label}</span>
+                          ))}
+                          {labels.aliases.map((label) => (
+                            <span key={label} className="chip chip--muted">{label}</span>
+                          ))}
+                        </div>
+                      ) : null}
 
-                      <article className="info-panel">
-                        <h3>Teoria y repertorio</h3>
-                        <p><strong>Notas teoricas:</strong> {relatedNotes.length}</p>
-                        <p><strong>Repertorios ligados:</strong> {relatedRepertoires.length}</p>
-                      </article>
-                    </div>
-                  </SectionCard>
-                ) : null}
+                      <div className="detail-grid detail-grid--single">
+                        <article className="info-panel">
+                          <h3>Ramas disponibles</h3>
+                          {childBranches.length > 0 ? (
+                            <div className="stack-list">
+                              {childBranches.map(({ edge, title }) => (
+                                <div key={`${edge.fromNodeId}-${edge.uci}`} className="list-row">
+                                  <strong>{edge.san}</strong>
+                                  <span>{title}</span>
+                                  <code>{edge.uci}</code>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="empty-state">
+                              {loadingBuckets.includes(selectedOpeningSummary.bucketKey)
+                                ? 'Cargando ramas de esta posicion...'
+                                : 'Esta linea aun no tiene ramas hijas cargadas en memoria.'}
+                            </p>
+                          )}
+                        </article>
+
+                        <article className="info-panel">
+                          <h3>Transposiciones relacionadas</h3>
+                          {relatedTranspositions.length > 0 ? (
+                            <div className="stack-list">
+                              {relatedTranspositions.map((opening) => (
+                                <div key={opening.id} className="list-row">
+                                  <strong>{normalizeOpeningText(opening.canonicalName)}</strong>
+                                  <span>{normalizeOpeningText(opening.subvariation)}</span>
+                                  <code>{opening.eco}</code>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="empty-state">Sin otras clasificaciones visibles en esta posicion.</p>
+                          )}
+                        </article>
+
+                        <article className="info-panel">
+                          <h3>Teoria y repertorio</h3>
+                          <p><strong>Notas teoricas:</strong> {relatedNotes.length}</p>
+                          <p><strong>Repertorios ligados:</strong> {relatedRepertoires.length}</p>
+                        </article>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {focusRailPanel === 'repertoire' ? (
+                    <RepertoireView
+                      openings={effectiveCourseOpenings}
+                      repertoireLines={repertoireLines.filter((line) =>
+                        line.rootOpeningId ? courseOpeningIds.has(line.rootOpeningId) : false,
+                      )}
+                      selectedOpeningId={selectedOpeningSummary?.id}
+                      onCreateFromOpening={createRepertoireFromOpening}
+                      onImportPgn={importRepertoirePgn}
+                      onToggleEnabled={toggleRepertoireLine}
+                      onSaveLine={saveRepertoireLine}
+                    />
+                  ) : null}
+
+                  {focusRailPanel === 'theory' ? (
+                    <TheoryView
+                      graph={graph}
+                      selectedNodeId={selectedNodeId}
+                      theoryNotes={theoryNotes}
+                      onSelectNode={selectNode}
+                      onSaveNote={saveTheoryNote}
+                      onDeleteNote={deleteTheoryNote}
+                      onOpenCatalog={openPicker}
+                      courseOpeningIds={courseOpeningIds}
+                    />
+                  ) : null}
+
+                  {focusRailPanel === 'settings' ? (
+                    <SettingsView
+                      settings={settings}
+                      onChange={(partial) => {
+                        updateSettings(partial).catch((nextError) => console.error('Settings save failed', nextError));
+                      }}
+                    />
+                  ) : null}
+                </SectionCard>
               </aside>
             </div>
-
-            <section className="workspace-drawers" aria-label="Herramientas avanzadas">
-              <details className="workspace-drawer">
-                <summary>Repertorio local</summary>
-                <div className="workspace-drawer__body">
-                  <RepertoireView
-                    openings={effectiveCourseOpenings}
-                    repertoireLines={repertoireLines.filter((line) =>
-                      line.rootOpeningId ? courseOpeningIds.has(line.rootOpeningId) : false,
-                    )}
-                    selectedOpeningId={selectedOpeningSummary?.id}
-                    onCreateFromOpening={createRepertoireFromOpening}
-                    onImportPgn={importRepertoirePgn}
-                    onToggleEnabled={toggleRepertoireLine}
-                    onSaveLine={saveRepertoireLine}
-                  />
-                </div>
-              </details>
-
-              <details className="workspace-drawer">
-                <summary>Teoria por posicion</summary>
-                <div className="workspace-drawer__body">
-                  <TheoryView
-                    graph={graph}
-                    selectedNodeId={selectedNodeId}
-                    theoryNotes={theoryNotes}
-                    onSelectNode={selectNode}
-                    onSaveNote={saveTheoryNote}
-                    onDeleteNote={deleteTheoryNote}
-                    onOpenCatalog={openPicker}
-                    courseOpeningIds={courseOpeningIds}
-                  />
-                </div>
-              </details>
-
-              <details className="workspace-drawer">
-                <summary>Ajustes avanzados</summary>
-                <div className="workspace-drawer__body">
-                  <SettingsView
-                    settings={settings}
-                    onChange={(partial) => {
-                      updateSettings(partial).catch((nextError) => console.error('Settings save failed', nextError));
-                    }}
-                  />
-                </div>
-              </details>
-            </section>
           </>
         ) : (
           <div className="study-layout study-layout--browse">

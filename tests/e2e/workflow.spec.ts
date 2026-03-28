@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { forceClick, openWorkspaceDrawer, gotoApp, waitForSelectedOpeningLoaded } from './helpers';
+import { forceClick, openWorkspacePanel, gotoApp, waitForSelectedOpeningLoaded } from './helpers';
 
 test('persists quick settings and repertoire across a reload', async ({ page }) => {
   test.setTimeout(180_000);
@@ -9,7 +9,7 @@ test('persists quick settings and repertoire across a reload', async ({ page }) 
   await quickMinimumDepth.fill('6');
   await expect(quickMinimumDepth).toHaveValue('6');
 
-  await openWorkspaceDrawer(page, 'Repertorio local');
+  await openWorkspacePanel(page, 'Repertorio');
   await forceClick(page.getByRole('button', { name: 'Agregar a blancas' }));
   await expect(page.locator('.repertoire-card').first().getByText('Blancas')).toBeVisible({ timeout: 30_000 });
 
@@ -17,6 +17,6 @@ test('persists quick settings and repertoire across a reload', async ({ page }) 
   await gotoApp(page);
   await expect(page.locator('.focus-toolbar').getByRole('spinbutton', { name: 'Min' })).toHaveValue('6');
 
-  await openWorkspaceDrawer(page, 'Repertorio local');
+  await openWorkspacePanel(page, 'Repertorio');
   await expect(page.locator('.repertoire-card').first().getByText('Blancas')).toBeVisible({ timeout: 30_000 });
 });

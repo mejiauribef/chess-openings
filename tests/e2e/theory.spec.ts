@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { forceClick, openWorkspaceDrawer, waitForSelectedOpeningLoaded } from './helpers';
+import { forceClick, openWorkspacePanel, waitForSelectedOpeningLoaded } from './helpers';
 
-test('creates a local theory note from the advanced drawer', async ({ page }) => {
+test('creates a local theory note from the course side panel', async ({ page }) => {
   test.setTimeout(180_000);
   await waitForSelectedOpeningLoaded(page);
-  await openWorkspaceDrawer(page, 'Teoria por posicion');
+  await openWorkspacePanel(page, 'Teoria');
 
   await expect(page.getByRole('heading', { name: 'Editor de teoria' })).toBeVisible({ timeout: 30_000 });
   await forceClick(page.getByRole('button', { name: 'Nueva nota' }));

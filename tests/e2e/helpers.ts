@@ -1,11 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 async function waitForAppShell(page: Page): Promise<void> {
-  await expect(
-    page.getByRole('heading', {
-      name: /elige una apertura y practica|curso activo|sicilian|ruy lopez|qgd|french|caro-kann/i,
-    }).first(),
-  ).toBeVisible({
+  await expect(page.locator('.focus-toolbar, .hero--study').first()).toBeVisible({
     timeout: 90_000,
   });
 }
@@ -33,9 +29,8 @@ export async function waitForSelectedOpeningLoaded(
   });
 }
 
-export async function openWorkspaceDrawer(page: Page, title: string): Promise<void> {
-  const drawer = page.locator('.workspace-drawer').filter({ hasText: title }).first();
-  await drawer.locator('summary').click();
+export async function openWorkspacePanel(page: Page, title: string): Promise<void> {
+  await page.locator('.study-rail--focus .focus-panel-tabs__button').filter({ hasText: title }).first().click();
 }
 
 export async function openCoursePicker(page: Page): Promise<void> {

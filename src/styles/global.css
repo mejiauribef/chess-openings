@@ -54,12 +54,12 @@ code {
 
 .hero {
   display: grid;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .hero--study {
-  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
   align-items: start;
 }
 
@@ -100,9 +100,9 @@ code {
 
 .hero h1 {
   font-family: "Alegreya", "Palatino Linotype", serif;
-  font-size: clamp(2rem, 4vw, 3.75rem);
+  font-size: clamp(1.7rem, 3.4vw, 3rem);
   line-height: 1.05;
-  margin: 0.25rem 0;
+  margin: 0.15rem 0;
 }
 
 .hero__eyebrow {
@@ -113,7 +113,7 @@ code {
 }
 
 .hero__copy {
-  max-width: 65ch;
+  max-width: 52ch;
   color: #cbd5e1;
   margin: 0;
 }
@@ -177,7 +177,7 @@ code {
 .hero-metric {
   display: grid;
   gap: 0.2rem;
-  padding: 1rem;
+  padding: 0.85rem 0.95rem;
   border-radius: 20px;
   background: rgba(15, 23, 42, 0.72);
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -191,7 +191,9 @@ code {
 }
 
 .hero-metric strong {
-  font-size: 1.6rem;
+  font-size: 1.35rem;
+  line-height: 1.15;
+  word-break: break-word;
 }
 
 .hero-metric small {
@@ -1014,6 +1016,27 @@ code {
   max-height: 58vh;
 }
 
+.focus-panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.focus-panel-tabs__button {
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+}
+
+.focus-panel-tabs__button.is-active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(14, 165, 233, 0.18));
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #f8fafc;
+}
+
 .opening-list--compact {
   max-height: 620px;
   overflow-y: auto;
@@ -1032,29 +1055,6 @@ code {
 
 .detail-grid--single {
   grid-template-columns: 1fr;
-}
-
-.workspace-drawers {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.workspace-drawer {
-  border-radius: 24px;
-  background: rgba(15, 23, 42, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.25);
-}
-
-.workspace-drawer summary {
-  cursor: pointer;
-  padding: 1rem 1.25rem;
-  font-weight: 700;
-}
-
-.workspace-drawer__body {
-  padding: 0 1rem 1rem;
 }
 
 @media (max-width: 900px) {
